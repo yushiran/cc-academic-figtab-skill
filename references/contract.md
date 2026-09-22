@@ -28,7 +28,8 @@ result grids; FlowDPS, CLAMP, DE-CM and AdaGen for the variants noted. Method di
 | floor | 6.0 pt, absolute | three of five 2026 flagships ship 4.5 to 5.6 pt somewhere; do not copy them |
 | bold, italic | none in the artwork except real maths; the caption is the only place for bold | |
 | a label that is part symbol, part words | two runs on one baseline: `mixed_label()` | matplotlib cannot size two parts of one Text |
-| tick labels | the face of their axis label: a word axis ("prior evaluations") takes Arimo ticks, a symbol axis ($t$, $\sigma_y$) takes CM ticks | every flagship ML plot sets count axes in the sans; a fraction beside $1-t$ is maths |
+| tick labels | the face of **what the tick is**: a plain number (1, 4, 16, 0.5, 33.96) in Arimo like every other word; a mathematical object (a fraction ½ set as `\tfrac12`, a symbol π or $\sigma$) in CM | DAPS Fig. 6 sets ticks and labels in one sans; the paper's fig1_path sets its PSNR values in Arimo and its $t$ knots ½ ¾ ⅞ in CM, since the body writes them as maths |
+| one quantity, one tick form | $t$ is fractions in CM in every figure, or decimals in Arimo in every figure; never ½ in one figure and 0.5 in the next | a colour is a term, and so is a notation |
 | `mathtext.default` | never set it | `"it"` embeds `cmti10`, the text italic, where TeX sets a variable in `cmmi10` |
 | tight relation | `$N\!=\!4$`, not `$N = 4$` | the paper writes a parameter value `$N{=}4$`; mathtext ignores the braces |
 
@@ -91,8 +92,10 @@ flagship convention (only SSDM-MRI in our survey uses one) and needs a reason.
 | --- | --- | --- |
 | axes of the grid | methods across the columns, tasks or images down the rows | DPS, FlowDPS, Flower, SSDM-MRI |
 | column order | measurement, baselines, ours, ground truth | DPS, FlowDPS |
-| seams | **0 pt** between reconstructions, horizontally and vertically | DAPS Fig. 1, measured |
-| the measurement column | set off by **1.8 pt** | DAPS Fig. 1: 4 px of a 111 px panel |
+| seams | **0 pt** between reconstructions, horizontally and vertically, so the eye diffs across the edge and each panel gets the largest side the width allows | DAPS Fig. 1, measured |
+| the one exception | when adjacent panels share a tone at their boundary (two skies, two dark backgrounds) and an abutting edge would vanish, **every** seam becomes **1.0 pt** white (`grid(..., seam=C.GRID_SEAM_FALLBACK)`); never one seam alone | a grid with one odd seam reads as a grouping |
+| the measurement column | set off by **1.8 pt**, whatever the seam: the measurement is an input, not an output | DAPS Fig. 1: 4 px of a 111 px panel |
+| strength of the evidence | the seam rule rests on one measured exemplar, DAPS, plus the reading argument above; DPS, FlowDPS and Flower have not been measured | re-measure when a second grid is borrowed from |
 | headers | above the first row, 6.5 pt, 2 pt above the panels | |
 | numbers | at most one row, under the method columns only, 6.5 pt; never on the image | DAPS Fig. 1; DPS, DiffPIR, FlowDPS keep them in tables |
 | zoom inset | a 0.9 pt box in the accent on the full image; the crop magnified in the panel's own bottom-right corner at 42 % of its width, with a 0.5 pt white border | FlowDPS Fig. 3 (DAPS puts crops in a row below, which costs a row per task) |

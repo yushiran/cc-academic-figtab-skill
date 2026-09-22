@@ -136,11 +136,13 @@ def budget(ax, ours, baselines, operating=None, compare_to=None, reference=None,
 
 
 def grid(panels, headers, venue="cvpr", span="full", numbers=None, number_row=None, measurement_col=0,
-         zoom=None, captions=None, header_color=C.INK):
+         zoom=None, captions=None, header_color=C.INK, seam=C.GRID_SEAM):
     """A result grid. `panels[r][c]` is an image path; `headers[c]` the column header; `numbers[c]` the string
     printed under column c of row `number_row` (the last row by default), "" for none; `zoom[r]` a pixel box
     (x0, y0, x1, y1) in the source images of row r, drawn on each panel and magnified in its bottom-right corner;
-    `captions[r]` an optional sub-panel caption under row r. Returns (fig, axes)."""
+    `captions[r]` an optional sub-panel caption under row r. `seam` is the white between reconstructions and between
+    rows: 0 by default (DAPS), C.GRID_SEAM_FALLBACK for every seam when adjacent panels share a tone at their
+    boundary. The measurement column is set off by C.GRID_MEASUREMENT_GAP either way. Returns (fig, axes)."""
     import matplotlib.pyplot as plt
     import numpy as np
     from matplotlib.patches import Rectangle
@@ -149,12 +151,13 @@ def grid(panels, headers, venue="cvpr", span="full", numbers=None, number_row=No
     from . import figure, width_in
     nr, nc = len(panels), len(panels[0])
     W = width_in(venue, span) * 72.0
-    gap = C.GRID_MEASUREMENT_GAP if measurement_col is not None else 0.0
-    p = (W - gap) / nc                                             # panel side in points
+    m = measurement_col is not None and 0 <= measurement_col < nc - 1  # a measurement boundary exists
+    gap = C.GRID_MEASUREMENT_GAP if m else 0.0
+    p = (W - gap - (nc - 1 - int(m)) * seam) / nc                    # panel side in points
     head = C.WORD_PT + C.GRID_HEADER_GAP
     num = (C.WORD_PT + C.GRID_NUMBER_GAP) if numbers else 0.0
     cap = (C.WORD_PT + 3.0) if captions else 0.0
-    H = head + nr * p + num + cap * nr
+    H = head + nr * p + (nr - 1) * seam + num + cap * nr
     fig, _ = figure(venue, span, height_in=H / 72.0)
     fig.axes[0].remove()
     fig._af_exact, fig._af_kind = True, "grid"                     # save() writes the page as laid out, no tight box
@@ -163,8 +166,9 @@ def grid(panels, headers, venue="cvpr", span="full", numbers=None, number_row=No
     side_px = int(round(p * C.PIXELS_PER_PT))
     for r in range(nr):
         for c in range(nc):
-            x = c * p + (gap if measurement_col is not None and c > measurement_col else 0.0)
-            y = H - head - (r + 1) * p - r * cap                         # points from the bottom
+            past = m and c > measurement_col                              # this column lies after the measurement gap
+            x = c * p + (c - int(past)) * seam + (gap if past else 0.0)
+            y = H - head - (r + 1) * p - r * (cap + seam)                 # points from the bottom
             ax = fig.add_axes([x / W, y / H, p / W, p / H])
             im = Image.open(panels[r][c]).convert("RGB")
             src_w, src_h = im.size
@@ -193,6 +197,6 @@ def grid(panels, headers, venue="cvpr", span="full", numbers=None, number_row=No
                 fig.text((x + p / 2) / W, (y - C.GRID_NUMBER_GAP) / H, numbers[c], ha="center", va="top",
                          color=C.INK)
         if captions and captions[r]:
-            fig.text(0.5, (H - head - (r + 1) * p - r * cap - num * (r == number_row) - 1.0) / H, captions[r],
-                     ha="center", va="top", color=C.INK)
+            fig.text(0.5, (H - head - (r + 1) * p - r * (cap + seam) - num * (r == number_row) - 1.0) / H,
+                     captions[r], ha="center", va="top", color=C.INK)
     return fig, axes

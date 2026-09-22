@@ -31,7 +31,7 @@ def green_budget():
     save(fig, OUT / "budget.pdf")
 
 
-def green_grid():
+def green_grid(seam=C.GRID_SEAM, name="grid"):
     from PIL import Image
     rng = np.random.default_rng(0)
     yy, xx = np.mgrid[0:256, 0:256]
@@ -50,8 +50,8 @@ def green_grid():
             row.append(p)
         paths.append(row)
     fig, _ = grid(paths, ["Measurement", "Method A", "Method B", "Ours", "Reference"], span="col",
-                  numbers=["", "24.1 dB", "25.3 dB", "27.9 dB", ""], zoom={0: (96, 96, 160, 160)})
-    save(fig, OUT / "grid.pdf")
+                  numbers=["", "24.1 dB", "25.3 dB", "27.9 dB", ""], zoom={0: (96, 96, 160, 160)}, seam=seam)
+    save(fig, OUT / f"{name}.pdf")
 
 
 def red(name, build, expect):
@@ -89,7 +89,8 @@ def red_undrawn():
 
 
 if __name__ == "__main__":
-    for name, fn in (("budget", green_budget), ("grid", green_grid)):
+    for name, fn in (("budget", green_budget), ("grid", green_grid),
+                     ("grid, 1 pt seams", lambda: green_grid(C.GRID_SEAM_FALLBACK, "grid_seam"))):
         try:
             fn()
             print(f"GREEN {name}: passed")

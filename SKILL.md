@@ -52,15 +52,17 @@ from academic_figure import figure, save, budget, grid, mixed_label, C
 Full table with sources in `references/contract.md`. The values that decide most figures:
 
 - **Width** CVPR column 3.28125 in (236 pt), text 6.875 in (495 pt). **Type** every word Arimo 6.5 pt, every symbol
-  Computer Modern 8 pt, floor 6.0; ticks take the face of their axis label.
+  Computer Modern 8 pt, floor 6.0. A tick takes the face of what it is: a plain number is Arimo, a fraction or a
+  symbol is CM; one quantity keeps one tick form across the paper.
 - **Colour** ours `#E2822F` (never on text: use black or `#A65F22`); every baseline `#919191` with `#6C6D70`
   labels; claim ink black; more series from Paul Tol's bright, muted or high-contrast, each with its own dash and
   marker. One concept, one hue, across every figure of the paper.
 - **Lines** structure 0.5, hairline 0.3, claim 0.9; data 1.1, ours 1.8; markers 3.2, the operating point 5.2.
 - **Axes** left and bottom spines only; ticks out, major only; no title; no grid; no second y axis; log axes say so.
 - **Labels** in place, beside the thing they name, never a legend when they fit (DAPS labels seven methods).
-- **Grids** reconstructions abut at 0 pt; only the measurement column is set off, by 1.8 pt; headers above; one row
-  of numbers under the method columns; zoom insets bottom-right with a 0.9 pt accent box.
+- **Grids** reconstructions abut at 0 pt, or every seam 1 pt white when adjacent panels share a tone at their edge;
+  the measurement column is set off by 1.8 pt either way; headers above; one row of numbers under the method
+  columns; zoom insets bottom-right with a 0.9 pt accent box.
 - **Whitespace** gutters at most 10 pt; ink 4 to 15 % for a plot, 20 to 40 % for a method figure.
 
 ## What reviewers see first

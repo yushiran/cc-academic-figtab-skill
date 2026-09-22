@@ -34,9 +34,11 @@ WORD_PT = 6.5                        # EVERY word: labels, ticks, legends, colum
 MATH_PT = 8.0                        # CM x-height 0.43 em vs Arimo 0.52 em: 8 pt CM matches 6.5 pt Arimo optically
 MATH_FONTSET = "cm"
 FLOOR_PT = 6.0                       # nothing smaller, ever; three of five 2026 flagships ship 4.5 to 5.6 pt somewhere
-# Ticks take the face of their axis label: a word label ("prior evaluations") gets Arimo ticks, a symbol label ($t$,
-# $\sigma_y$) gets Computer Modern ticks. This reconciles "a number on an axis is mathematics" with every flagship
-# ML plot, which sets count axes in the sans.
+# A tick takes the face of what it is. A plain number (1, 4, 16, 0.5, 33.96) is Arimo, like every word of the plot:
+# DAPS Fig. 6 sets ticks and labels in one sans, and the paper's own PSNR values are Arimo. A mathematical object (a
+# fraction such as 1/2 written as \tfrac12, a symbol such as pi or sigma) is Computer Modern, because the body sets
+# it as maths and the figure must show the same object. One quantity keeps one tick form across the whole paper:
+# t is fractions in CM everywhere or decimals in Arimo everywhere, never 1/2 in one figure and 0.5 in the next.
 
 # --- Palette ---------------------------------------------------------------------------------------
 # Thirteen values and no fourteenth (style-contract.md of academic-figure-figma). A colour is a term: one concept,
@@ -88,8 +90,10 @@ MARKER_EDGE_OPERATING = 0.6
 # --- Result grids (qualitative figures and teasers) ------------------------------------------------
 # Measured on DAPS Fig. 1 (CVPR 2025 oral): reconstructions abut edge to edge in both directions, and only the
 # measurement column is set off, by 4 px of a 111 px panel.
-GRID_SEAM = 0.0                      # between reconstruction panels, and between rows
-GRID_MEASUREMENT_GAP = 1.8           # pt, between the measurement column and the rest
+GRID_SEAM = 0.0                      # between reconstruction panels, and between rows: the eye diffs across the edge
+GRID_SEAM_FALLBACK = 1.0             # pt of white, when adjacent panels share a tone at their boundary (two skies) and
+                                     # an abutting edge would vanish; then EVERY seam takes it, never one alone
+GRID_MEASUREMENT_GAP = 1.8           # pt, between the measurement column and the rest: an input, not an output
 GRID_HEADER_GAP = 2.0                # pt, from the header baseline to the panel top
 GRID_NUMBER_GAP = 2.0                # pt, from the panel bottom to the numbers row
 INSET_FRACTION = 0.42                # a zoom inset spans this share of its panel's width, in the bottom-right corner
