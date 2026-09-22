@@ -27,7 +27,7 @@ result grids; FlowDPS, CLAMP, DE-CM and AdaGen for the variants noted. Method di
 | symbols | Computer Modern (TeX `cmmi`, `cmr`, `cmsy`), **8 pt** | CM's x-height (0.43 em) at 8 pt matches Arimo's (0.52 em) at 6.5 pt |
 | floor | 6.0 pt, absolute | three of five 2026 flagships ship 4.5 to 5.6 pt somewhere; do not copy them |
 | bold, italic | none in the artwork except real maths; the caption is the only place for bold | |
-| a label that is part symbol, part words | two runs on one baseline: `mixed_label()` | matplotlib cannot size two parts of one Text |
+| a label that is part symbol, part words | two runs on one baseline: `mixed_label()`; for an axis label `mixed_xlabel()`; a legend entry cannot be split, so it is worded | matplotlib cannot size two parts of one Text; maths inside a 6.5 pt string prints at 6.5 pt, and the audit warns |
 | tick labels | the face of **what the tick is**: a plain number (1, 4, 16, 0.5, 33.96) in Arimo like every other word; a mathematical object (a fraction ½ set as `\tfrac12`, a symbol π or $\sigma$) in CM | DAPS Fig. 6 sets ticks and labels in one sans; the paper's fig1_path sets its PSNR values in Arimo and its $t$ knots ½ ¾ ⅞ in CM, since the body writes them as maths |
 | one quantity, one tick form | $t$ is fractions in CM in every figure, or decimals in Arimo in every figure; never ½ in one figure and 0.5 in the next | a colour is a term, and so is a notation |
 | `mathtext.default` | never set it | `"it"` embeds `cmti10`, the text italic, where TeX sets a variable in `cmmi10` |

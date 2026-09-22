@@ -3,6 +3,8 @@
 GREEN  each template draws a figure that passes the audit
 RED    each defect the audit exists to catch is caught: collided labels, a word in the wrong face, a label anchored
        outside its axes and so never drawn, a page wider than the column
+AMBER  each defect the audit warns about is named: maths set at the word size, a label hanging past its axes; and
+       a figure whose tick pool holds labels from an earlier autoscale raises no false overlap
 
     python examples/test_examples.py            # writes examples/out/*.pdf and *.png, exits 1 on any failure
 """
@@ -13,7 +15,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from academic_figure import C, budget, figure, grid, save  # noqa: E402
+from academic_figure import C, audit, budget, figure, grid, mixed_xlabel, save  # noqa: E402
 
 OUT = ROOT / "examples" / "out"
 OUT.mkdir(exist_ok=True)
@@ -88,9 +90,49 @@ def red_undrawn():
     save(fig, OUT / "red_undrawn.pdf")
 
 
+def green_panels():
+    """Eight small panels whose y limits are set after the data: the tick pool keeps labels from the autoscale,
+    which must not be reported as overlaps (they were, 2026-09-22)."""
+    fig, axes = figure("cvpr", "full", height_in=2.6, nrows=2, ncols=4)
+    fig.subplots_adjust(wspace=0.3, hspace=0.45, left=0.05, right=0.995, top=0.97, bottom=0.11)
+    for i, ax in enumerate(axes.flat):
+        ax.plot([1, 4, 16, 64], [20 + i, 30 + i, 31 + i, 31 + i], "-o", color=C.ACCENT, ms=2.6)
+        ax.set_xscale("log")
+        ax.set_ylim(19 + i, 33 + i)
+    mixed_xlabel(axes[1, 0], [("evaluations ", "word"), ("$N$", "math"), (" (log scale)", "word")])
+    save(fig, OUT / "panels.pdf")
+
+
+def amber(name, build, needle):
+    fig = build()
+    issues = audit(fig)
+    import matplotlib.pyplot as plt
+    plt.close(fig)
+    if any(sev == "WARN" and needle in msg for sev, msg in issues):
+        print(f"AMBER {name}: warned, as it must")
+        return
+    failures.append(f"AMBER {name}: no WARN naming '{needle}' in {issues}")
+
+
+def amber_small_math():
+    fig, ax = figure("cvpr", "col", height_in=1.9)
+    ax.plot([0.01, 0.1], [30, 28], "-o", color=C.ACCENT)
+    ax.set_xlabel("noise level $\\sigma_y$")                       # the symbol prints at the word size
+    return fig
+
+
+def amber_reach():
+    fig, ax = figure("cvpr", "col", height_in=1.9)
+    ax.plot([1, 2], [1, 2], "o", color=C.ACCENT)
+    ax.set_ylim(0, 2.05)
+    ax.annotate("Ours", (2, 2), xytext=(0, 6), textcoords="offset points", ha="center", va="bottom")   # hangs above the frame
+    return fig
+
+
 if __name__ == "__main__":
     for name, fn in (("budget", green_budget), ("grid", green_grid),
-                     ("grid, 1 pt seams", lambda: green_grid(C.GRID_SEAM_FALLBACK, "grid_seam"))):
+                     ("grid, 1 pt seams", lambda: green_grid(C.GRID_SEAM_FALLBACK, "grid_seam")),
+                     ("panels", green_panels)):
         try:
             fn()
             print(f"GREEN {name}: passed")
@@ -99,5 +141,7 @@ if __name__ == "__main__":
     red("overlap", red_overlap, "two labels on top of each other")
     red("face", red_face, "a word in DejaVu Sans")
     red("undrawn", red_undrawn, "a label anchored outside its axes")
+    amber("small maths", amber_small_math, "maths set at the word size")
+    amber("reach", amber_reach, "reaching past their axes")
     print("\n" + ("ALL PASSED" if not failures else "FAILURES:\n  " + "\n  ".join(failures)))
     sys.exit(1 if failures else 0)

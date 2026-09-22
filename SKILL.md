@@ -26,7 +26,7 @@ never types a size, a colour or a width.
 
 ```python
 import sys; sys.path.insert(0, "<this skill's base directory>")
-from academic_figure import figure, save, budget, grid, mixed_label, C
+from academic_figure import figure, save, budget, grid, mixed_label, mixed_xlabel, place_labels, C
 ```
 
 1. **Claim.** One sentence: what the reader must be able to check off this figure.
@@ -59,7 +59,11 @@ Full table with sources in `references/contract.md`. The values that decide most
   marker. One concept, one hue, across every figure of the paper.
 - **Lines** structure 0.5, hairline 0.3, claim 0.9; data 1.1, ours 1.8; markers 3.2, the operating point 5.2.
 - **Axes** left and bottom spines only; ticks out, major only; no title; no grid; no second y axis; log axes say so.
-- **Labels** in place, beside the thing they name, never a legend when they fit (DAPS labels seven methods).
+- **Labels** in place, beside the thing they name, never a legend when they fit (DAPS labels seven methods);
+  `place_labels()` finds the free spot. A label or axis label that mixes a symbol with words is set with
+  `mixed_label()` / `mixed_xlabel()`, so the symbol gets its 8 pt: maths inside a plain label or a legend entry
+  renders at 6.5 pt, where Computer Modern's x-height is a fifth under Arimo's and the symbol reads small. A legend
+  entry cannot be mixed, so word it.
 - **Grids** reconstructions abut at 0 pt, or every seam 1 pt white when adjacent panels share a tone at their edge;
   the measurement column is set off by 1.8 pt either way; headers above; one row of numbers under the method
   columns; zoom insets bottom-right with a 0.9 pt accent box.
@@ -83,12 +87,15 @@ the checks with the evidence behind each.
 | `set_xlim` after placing a label at the old limit | the label is never drawn and nothing says so | `save()` fails it |
 | two panels saying one thing at column width | 105 pt panels, labels collide | one panel; the other metric goes in the caption |
 | a colour picked by eye | a navy that appears in no other figure of the paper | colours only from `C` |
+| `$\sigma_y$` inside `set_xlabel` or a legend entry | the symbol prints at 6.5 pt, visibly smaller than the words | `mixed_xlabel()`; word the legend |
+| a label offset past the top of its axes | it hangs in the margin, half a line above the frame | `save()` warns; move it, or widen the limits |
+| a step of 3 FID drawn on an axis 90 FID wide | the arrow is 8 pt long and hides under its own markers | zoom the cluster in an inset (F3 of the paper) |
 | handing over before reading the render | every defect above shipped once | rule 4 |
 
 ## Files
 
 - `academic_figure/contract.py` — every number. `__init__.py` — `use`, `figure`, `save`. `audit.py` — the gate.
-  `templates.py` — `budget`, `grid`, `mixed_label`, `place_labels`. `fonts/` — Arimo, SIL OFL 1.1.
+  `templates.py` — `budget`, `grid`, `mixed_label`, `mixed_xlabel`, `place_labels`. `fonts/` — Arimo, SIL OFL 1.1.
 - `references/contract.md` — the rules with their sources. `references/exemplars.md` — the flagship figures by
   paper and number, and what to take from each. `references/reviewer.md` — what a reviewer checks.
 - `examples/` — runnable scripts that draw one figure of each type from bundled data, and double as the tests.

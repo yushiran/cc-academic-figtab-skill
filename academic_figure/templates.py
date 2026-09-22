@@ -26,9 +26,10 @@ def _collides(bb, placed, markers, pad):
     return any(bb.x0 - r < x < bb.x1 + r and bb.y0 - r < y < bb.y1 + r for x, y, r in markers)
 
 
-def place_labels(ax, points, color=C.CONNECTOR, fixed=None):
+def place_labels(ax, points, color=C.CONNECTOR, fixed=None, candidates=None):
     """Label each (name, x, y) beside its marker at the first candidate spot that collides with nothing placed yet
-    and no marker. `fixed` maps a name to (dx, dy, ha, va) to override. Returns the Text artists."""
+    and no marker. `fixed` maps a name to (dx, dy, ha, va) to override; `candidates` replaces the default spots
+    (right, left, above, below, the four diagonals) with a tuple of (dx, dy, ha, va). Returns the Text artists."""
     fig = ax.figure
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
@@ -41,7 +42,7 @@ def place_labels(ax, points, color=C.CONNECTOR, fixed=None):
     placed = [t.get_window_extent(renderer) for t in ax.texts]
     out = []
     for name, x, y in points:
-        tries = [fixed[name]] if fixed and name in fixed else _CANDIDATES
+        tries = [fixed[name]] if fixed and name in fixed else (candidates or _CANDIDATES)
         for dx, dy, ha, va in tries:
             t = ax.annotate(name, (x, y), xytext=(dx, dy), textcoords="offset points", ha=ha, va=va, color=color)
             bb = t.get_window_extent(renderer)
@@ -58,8 +59,10 @@ def place_labels(ax, points, color=C.CONNECTOR, fixed=None):
     return out
 
 
-def mixed_label(ax, xy, parts, xytext=(0, 0), color=C.INK, ha="left"):
-    """parts = [("$N{=}4$", "math"), (", 33.96 dB", "word")]: laid left to right on one baseline."""
+def mixed_label(ax, xy, parts, xytext=(0, 0), color=C.INK, ha="left", xycoords="data"):
+    """parts = [("$N{=}4$", "math"), (", 33.96 dB", "word")]: laid left to right on one baseline. `xycoords` as
+    for annotate, so ("axes fraction", "data") anchors a row label at the axes edge. The run is set with
+    va="baseline", so to centre it on a marker give xytext a dy of about -2."""
     fig = ax.figure
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
@@ -67,8 +70,8 @@ def mixed_label(ax, xy, parts, xytext=(0, 0), color=C.INK, ha="left"):
     x_off, arts = xytext[0], []
     for text, kind in parts:
         size = C.MATH_PT if kind == "math" else C.WORD_PT
-        t = ax.annotate(text, xy, xytext=(x_off, xytext[1]), textcoords="offset points", ha="left", va="baseline",
-                        color=color, fontsize=size)
+        t = ax.annotate(text, xy, xycoords=xycoords, xytext=(x_off, xytext[1]), textcoords="offset points", ha="left",
+                        va="baseline", color=color, fontsize=size, annotation_clip=False)
         x_off += t.get_window_extent(renderer).width / px
         arts.append(t)
     if ha != "left":                                       # shift the whole run so its anchor is right or centre
@@ -76,6 +79,31 @@ def mixed_label(ax, xy, parts, xytext=(0, 0), color=C.INK, ha="left"):
         for t in arts:
             dx, dy = t.xyann
             t.xyann = (dx + shift, dy)
+    return arts
+
+
+def mixed_xlabel(ax, parts, color=C.INK, labelpad_pt=4.0):
+    """An x-axis label that is part symbol and part words, set like mixed_label: the symbol in Computer Modern at
+    8 pt, the words in Arimo at 6.5 pt, centred under the axes one label pad below the tick labels, where
+    set_xlabel would put it. Maths inside set_xlabel renders at the word size, where Computer Modern's x-height is
+    a fifth under Arimo's and the symbol reads small; this is the way round it."""
+    fig = ax.figure
+    ax.set_xlabel("")
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    px = fig.dpi / 72.0
+    low = min([ax.bbox.y0] + [t.get_window_extent(renderer).y0 for t in ax.get_xticklabels() if t.get_text()])
+    y_off = -((ax.bbox.y0 - low) / px + labelpad_pt + 0.9 * C.WORD_PT)   # baseline one ascent under the label's top
+    x_off, arts = 0.0, []
+    for text, kind in parts:
+        size = C.MATH_PT if kind == "math" else C.WORD_PT
+        t = ax.annotate(text, (0.5, 0.0), xycoords="axes fraction", xytext=(x_off, y_off), textcoords="offset points",
+                        ha="left", va="baseline", color=color, fontsize=size, annotation_clip=False)
+        x_off += t.get_window_extent(renderer).width / px
+        arts.append(t)
+    for t in arts:                                         # centre the run on the axes
+        dx, dy = t.xyann
+        t.xyann = (dx - x_off / 2, dy)
     return arts
 
 

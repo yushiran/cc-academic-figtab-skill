@@ -93,13 +93,20 @@ def save(fig, path, venue: str | None = None, span: str | None = None, reference
     kind = getattr(fig, "_af_kind", "plot")
     # bbox_inches=None means "the rcParams default", which is tight; the figure's own box is what switches it off
     whole = {"bbox_inches": fig.bbox_inches, "pad_inches": 0} if exact else {}
-    for _ in range(4):
+    w_prev = got_prev = None
+    for _ in range(6):
         fig.savefig(path, **whole)
         got = _mediabox_width(path)
         if exact or target - C.WIDTH_TOLERANCE_PT <= got <= target:
             break
         w, h = fig.get_size_inches()
-        fig.set_size_inches(w + (target - got - 0.5 * C.WIDTH_TOLERANCE_PT) / C.PT_PER_IN, h)
+        gain = C.PT_PER_IN                                            # page points gained per inch of figure width
+        if w_prev is not None and abs(w - w_prev) > 1e-6:            # a layout whose labels hang off the axes answers
+            g = (got - got_prev) / (w - w_prev)                       # with less or more than one; use the measured gain
+            if 0.3 * C.PT_PER_IN < g < 3.0 * C.PT_PER_IN:
+                gain = g
+        w_prev, got_prev = w, got
+        fig.set_size_inches(w + (target - 0.5 * C.WIDTH_TOLERANCE_PT - got) / gain, h)
     png = path.with_suffix(".png")
     fig.savefig(png, dpi=300, **whole)
     issues = audit(fig) + audit_pdf(path, target, png, kind=kind)
@@ -110,6 +117,6 @@ def save(fig, path, venue: str | None = None, span: str | None = None, reference
     return path
 
 
-from .templates import budget, grid, mixed_label  # noqa: E402  (templates import the contract, not this module)
+from .templates import budget, grid, mixed_label, mixed_xlabel, place_labels  # noqa: E402  (templates import the contract, not this module)
 
-__all__ = ["C", "use", "figure", "save", "width_in", "audit", "budget", "grid", "mixed_label"]
+__all__ = ["C", "use", "figure", "save", "width_in", "audit", "budget", "grid", "mixed_label", "mixed_xlabel", "place_labels"]

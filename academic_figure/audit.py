@@ -58,8 +58,18 @@ def _draw_collect_glyphs(fig) -> list[str]:
 
 
 def _texts(fig):
+    """Every visible, non-empty Text, minus the tick labels an axis keeps pooled from an earlier autoscale: those
+    still say '40' or '0.3', report visible, and are never drawn (they collided in pairs on a 2x4 panel figure,
+    2026-09-22). Call after a draw, so the live tick set is the drawn one."""
     import matplotlib.text as mtext
-    return [t for t in fig.findobj(mtext.Text) if t.get_visible() and t.get_text().strip()]
+    stale = set()
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            lo, hi = sorted(axis.get_view_interval())
+            live = [t for t in axis.get_major_ticks() + axis.get_minor_ticks() if lo <= t.get_loc() <= hi]
+            pool = {t.label1 for t in axis.majorTicks} | {t.label1 for t in axis.minorTicks}
+            stale |= pool - {t.label1 for t in live}       # pooled from an earlier autoscale, or located off the view
+    return [t for t in fig.findobj(mtext.Text) if t.get_visible() and t.get_text().strip() and t not in stale]
 
 
 def _is_math(text: str) -> bool:
@@ -96,7 +106,8 @@ def audit(fig, overlap_tol_pt: float = 0.3) -> list[tuple[str, str]]:
     glyphs = _draw_collect_glyphs(fig)
     if glyphs:
         issues.append(("FAIL", "missing glyphs, the page will print boxes: " + " | ".join(glyphs[:3])[:240]))
-    renderer = fig.canvas.get_renderer()
+    fig.canvas.draw()            # the glyph pass rendered at 100 dpi, and a legend keeps the layout of its last draw;
+    renderer = fig.canvas.get_renderer()   # measure everything after one draw at the figure's own dpi (found 2026-09-22)
     px_per_pt = fig.dpi / 72.0
     W, H = fig.bbox.width, fig.bbox.height
     texts = _texts(fig)
@@ -177,6 +188,37 @@ def audit(fig, overlap_tol_pt: float = 0.3) -> list[tuple[str, str]]:
         issues.append(("FAIL", f"words not in {C.WORD_FACE}: {wrong_face[:6]}"))
     if off_size:
         issues.append(("WARN", f"words not at the one word size {C.WORD_PT} pt: {off_size[:6]}"))
+
+    # 4b. maths inside a word-size text renders at the word size, where Computer Modern's x-height is a fifth
+    #     under Arimo's and the symbol reads small (a legend's sigma_y, 2026-09-22). Tick labels are exempt, since one
+    #     quantity keeps one tick form; anywhere else the run is set with mixed_label or mixed_xlabel.
+    tick_texts = set()
+    for ax in fig.axes:
+        tick_texts.update(ax.get_xticklabels() + ax.get_yticklabels())
+    small_math = [f"{t.get_text()[:20]} {t.get_fontsize():.1f}pt" for t in texts
+                  if t not in tick_texts and "$" in t.get_text() and t.get_fontsize() < C.MATH_PT - 0.05]
+    if small_math:
+        issues.append(("WARN", f"maths set at the word size, not {C.MATH_PT} pt (use mixed_label / mixed_xlabel): "
+                               f"{small_math[:6]}"))
+
+    # 4c. a data-anchored label that reaches past its axes by more than a few points sits in the margin, where the
+    #     tight bounding box grows to keep it and it reads as a stray (a label pushed above the frame, 2026-09-22)
+    reach = []
+    for ax in fig.axes:
+        skip = {ax.xaxis.label, ax.yaxis.label, ax.title, *ax.get_xticklabels(), *ax.get_yticklabels()}
+        if ax.get_legend() is not None:
+            skip.update(ax.get_legend().get_texts())
+        for t in texts:
+            if t.axes is not ax or t in skip:
+                continue
+            if isinstance(t, mtext.Annotation) and t.xycoords not in ("data", None):
+                continue                                             # placed off the axes on purpose
+            bb = t.get_window_extent(renderer)
+            over = max(ax.bbox.x0 - bb.x0, bb.x1 - ax.bbox.x1, ax.bbox.y0 - bb.y0, bb.y1 - ax.bbox.y1) / px_per_pt
+            if over > 4.0:
+                reach.append(f"{t.get_text()[:16]} {over:.0f}pt")
+    if reach:
+        issues.append(("WARN", f"labels reaching past their axes: {reach[:6]}"))
 
     # 5. colours: lines, markers, patches, collections and text against the palette and the series schemes
     allowed = tuple(C.PALETTE) + C.SERIES_MUTED + C.SERIES_BRIGHT + C.SERIES_HIGH_CONTRAST
