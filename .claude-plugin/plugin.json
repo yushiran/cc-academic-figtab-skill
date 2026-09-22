@@ -1,0 +1,10 @@
+{
+  "name": "academic-figure",
+  "version": "0.1.0",
+  "description": "Paper figures from experiment results at print size, in one paper's style, with the review gate built into save(): budget and Pareto plots, qualitative and teaser result grids",
+  "author": { "name": "Shiran Yu" },
+  "homepage": "https://github.com/yushiran/cc-academic-figure-skill",
+  "repository": "https://github.com/yushiran/cc-academic-figure-skill",
+  "license": "MIT",
+  "keywords": ["figures", "matplotlib", "cvpr", "paper", "plots", "result-grid"]
+}

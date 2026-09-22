@@ -1,0 +1,17 @@
+This skill borrows from three other works, each under its own licence.
+
+scipilot-figure-skill, https://github.com/Haojae/scipilot-figure-skill
+  Copyright (c) 2026 Haojae. MIT License.
+  academic_figure/audit.py adapts the missing-glyph capture and the tick-label overlap test of its
+  scripts/visual_qa.py, and the idea of a render-then-read review loop.
+
+SciencePlots, https://github.com/garrettj403/SciencePlots
+  Copyright (c) 2018 John Garrett. MIT License.
+  academic_figure/contract.py copies Paul Tol's bright, muted and high-contrast colour cycles in the order
+  of its styles/color/*.mplstyle, and follows its practice of pairing each colour with a marker so series
+  separate in greyscale.
+
+Arimo, https://github.com/googlefonts/arimo
+  Copyright 2020 The Arimo Project Authors. SIL Open Font License, Version 1.1.
+  academic_figure/fonts/Arimo-Regular.ttf is the latin subset of the @fontsource/arimo build, converted from
+  woff2 to TrueType; the licence text is academic_figure/fonts/LICENSE-Arimo.txt.
