@@ -1,12 +1,12 @@
 {
   "name": "academic-figure",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Paper figures and results tables from experiment results, in one paper's style, with the review gate in code: budget and Pareto plots, qualitative and teaser result grids at print size; tables built from the result files with computed marks, verified against them, and audited in the LaTeX source",
   "author": {
     "name": "Shiran Yu"
   },
-  "homepage": "https://github.com/yushiran/cc-academic-figure-skill",
-  "repository": "https://github.com/yushiran/cc-academic-figure-skill",
+  "homepage": "https://github.com/yushiran/cc-academic-figtab-skill",
+  "repository": "https://github.com/yushiran/cc-academic-figtab-skill",
   "license": "MIT",
   "keywords": [
     "figures",
