@@ -52,9 +52,10 @@ Requires matplotlib, numpy and Pillow. The Arimo font is bundled (SIL OFL 1.1).
 python examples/test_examples.py
 ```
 
-Draws one figure of each template from synthetic data and must pass; then builds three figures with a
-known defect each (collided labels, a word in DejaVu, a label anchored outside its axes) and must catch all
-three.
+Draws one figure of each template from synthetic data and must pass (seven, four of them result grids); builds
+five figures with a known defect each (collided labels, a word in DejaVu, a label anchored outside its axes, a zoom
+box under its own inset, a zoom that magnifies nothing) and must fail all five; and eleven with a defect the audit
+warns about, each of which must be named.
 
 ## Credits
 

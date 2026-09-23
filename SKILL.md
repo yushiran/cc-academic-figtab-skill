@@ -37,7 +37,7 @@ from academic_figure import figure, save, budget, grid, mixed_label, mixed_xlabe
    | figure | call | reference to compare against |
    | --- | --- | --- |
    | quality against compute | `budget(ax, ours=[(x, y, N)], baselines=[(name, x, y)], operating=4, compare_to="Flower", reference=("RAM, no prior evaluations", y))` | DAPS Fig. 6 |
-   | qualitative grid, teaser grid | `grid(panels, headers, numbers=..., measurement_col=0, zoom={row: (x0, y0, x1, y1)})` | DAPS Fig. 1, FlowDPS Fig. 3 |
+   | qualitative grid, teaser grid, supplementary sample grid | `grid(panels, headers, row_labels=..., blocks=..., numbers=..., zoom={row: box}, zoom_style="inset"\|"row")`; design first with `references/qualitative.md` (claim, content, selection rule, layout, caption) | DAPS Figs. 1 and 8, ReSample Fig. 7, PnP-Flow Fig. 6, JiT Fig. 8 |
    | anything else | `figure()` plus matplotlib, colours only from `C` | the closest exemplar in `references/exemplars.md` |
 
 4. **Save.** `save(fig, "figs/name.pdf", reference="<path of the reference image>")`. It closes the page to the
@@ -64,9 +64,12 @@ Full table with sources in `references/contract.md`. The values that decide most
   `mixed_label()` / `mixed_xlabel()`, so the symbol gets its 8 pt: maths inside a plain label or a legend entry
   renders at 6.5 pt, where Computer Modern's x-height is a fifth under Arimo's and the symbol reads small. A legend
   entry cannot be mixed, so word it.
-- **Grids** reconstructions abut at 0 pt, or every seam 1 pt white when adjacent panels share a tone at their edge;
-  the measurement column is set off by 1.8 pt either way; headers above; one row of numbers under the method
-  columns; zoom insets bottom-right with a 0.9 pt accent box.
+- **Grids** (measured on 87 flagship qualitative figures, `references/qualitative.md`): the claim sentence first, a
+  visible failure per row or the row goes to the supplement; methods across the columns, measurement first, ours the
+  last method column under a plain "Ours"; 2.5 pt seams both ways (0 pt only for generated samples), 9.3 pt between
+  column blocks; panels as large as the width allows, never under 28.5 pt; no zoom unless the claim is texture on a
+  large image, then 3× at 0.40 of the panel in a free corner with a 0.9 pt accent box; the selection rule stated in
+  the caption; an uncurated supplementary grid of the first test images as the backstop.
 - **Whitespace** gutters at most 10 pt; ink 4 to 15 % for a plot, 20 to 40 % for a method figure.
 
 ## What reviewers see first
@@ -94,8 +97,12 @@ the checks with the evidence behind each.
 
 ## Files
 
-- `academic_figure/contract.py` — every number. `__init__.py` — `use`, `figure`, `save`. `audit.py` — the gate.
-  `templates.py` — `budget`, `grid`, `mixed_label`, `mixed_xlabel`, `place_labels`. `fonts/` — Arimo, SIL OFL 1.1.
-- `references/contract.md` — the rules with their sources. `references/exemplars.md` — the flagship figures by
-  paper and number, and what to take from each. `references/reviewer.md` — what a reviewer checks.
+- `academic_figure/contract.py` — every number. `__init__.py` — `use`, `figure`, `save`. `audit.py` — the gate,
+  with the grid checks in `audit_grid()`. `templates.py` — `budget`, `grid`, `mixed_label`, `mixed_xlabel`,
+  `place_labels`. `fonts/` — Arimo, SIL OFL 1.1.
+- `references/contract.md` — the rules with their sources. `references/qualitative.md` — how to design a
+  qualitative figure, with the measured grammar and the common mistakes. `references/exemplars.md` — the flagship
+  figures by paper and number, and what to take from each. `references/reviewer.md` — what a reviewer checks.
+- `academic_figure/grids.py`, `scripts/measure_grids.py` — measure the result grids of any PDF (the evidence behind
+  §7); `academic_figure/tables_measure.py`, `scripts/measure_tables.py` — the same for tables.
 - `examples/` — runnable scripts that draw one figure of each type from bundled data, and double as the tests.

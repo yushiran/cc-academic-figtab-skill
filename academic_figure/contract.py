@@ -88,18 +88,45 @@ MARKER_OPERATING = 5.2               # the one point the tables report, filled, 
 MARKER_EDGE_OPERATING = 0.6
 
 # --- Result grids (qualitative figures and teasers) ------------------------------------------------
-# Measured on DAPS Fig. 1 (CVPR 2025 oral): reconstructions abut edge to edge in both directions, and only the
-# measurement column is set off, by 4 px of a 111 px panel.
-GRID_SEAM = 0.0                      # between reconstruction panels, and between rows: the eye diffs across the edge
-GRID_SEAM_FALLBACK = 1.0             # pt of white, when adjacent panels share a tone at their boundary (two skies) and
-                                     # an abutting edge would vanish; then EVERY seam takes it, never one alone
-GRID_MEASUREMENT_GAP = 1.8           # pt, between the measurement column and the rest: an input, not an output
+# Measured 2026-09-23 from the image placements of 87 qualitative figures in 33 papers (44 PDFs read, every figure
+# classified by eye): 54 comparisons, 24 single-method result grids, 9 generation sample grids. The gap lists and the
+# reasons are in references/qualitative.md. A grid exported as one raster (DPS, Flower, FlowDPS, DAPS Fig. 1a-b) has
+# no placements to measure and is not in these numbers.
+GRID_SEAM = 2.5                      # pt of white between reconstructions, in both directions: median 2.48 over 54
+                                     # comparisons (IQR 1.36-2.99, 3.7 % of the panel side); only 6 of 54 abut. The
+                                     # vertical seam equals the horizontal one: median ratio 0.95 over 30 comparisons
+GRID_SEAM_SAMPLES = 0.0              # generation sample grids abut: 8 of 9 (DiT, JiT, MAR, MeanFlow, LDM)
+GRID_SEAM_FALLBACK = 1.0             # the 0.1.x seam for abutting panels that shared a tone; kept for its callers
+GRID_SEAM_MAX = 4.9                  # pt: the seams of 76 of 78 reconstruction grids lie in 0 to 4.9 pt
+GRID_ABUT = 0.3                      # pt: a seam at or under this abuts
+GRID_MERGE_LEVELS = 8.0              # an abutting edge whose luminance steps under this (of 255) along most of its
+                                     # length vanishes: the teaser's two MRI knees stepped 2.1 to 7.0 and read as one
+GRID_MEASUREMENT_GAP = 2.0           # pt, only where the reconstructions abut: LDM F8 2.0, ReSample F3 2.4, DAPS F1a
+                                     # 1.4. With a seam the measurement takes that seam, as 30 of 32 grids do
+GRID_BLOCK_GAP = 9.3                 # pt between column blocks: median of 21 block gaps (IQR 6.1-14.3)
+GRID_BLOCK_RATIO = 2.2               # a block gap reads as a boundary from 2.2 seams (ReSample F5 2.2, D-Flow F5 2.3)
+GRID_PANEL_FLOOR = 28.5              # pt, the smallest panel of the 90 flagship qualitative figures (DDNM F4)
 GRID_HEADER_GAP = 2.0                # pt, from the header baseline to the panel top
+GRID_HEADER_PT = (6.25, 8.9)         # measured header sizes, interquartile range over 41 grids (median 7.8); the one
+                                     # word size, 6.5, lies inside it, so headers take WORD_PT like every other word
 GRID_NUMBER_GAP = 2.0                # pt, from the panel bottom to the numbers row
-INSET_FRACTION = 0.42                # a zoom inset spans this share of its panel's width, in the bottom-right corner
-INSET_BORDER = WORK_W                # white 0.5 pt border round the inset, so it separates from the image
-INSET_BOX = CLAIM_W                  # the box marking the zoomed region on the full image
+GRID_ROW_LABEL_GAP = 2.0             # pt of white between a rotated row label and its row
+INSET_FRACTION = 0.40                # an overlaid inset spans this share of its panel: median of 16 vector-placed
+                                     # magnifying insets in 11 papers (range 0.24-0.60); raster insets not measured
+INSET_FRACTION_MIN = 0.30            # their lower quartile; grid() shrinks insets no further to uncover their boxes
+INSET_CORNERS = ("br", "bl", "tr", "tl")   # bottom-right first: 9 of those 16 sit there (tr 3, bl 3, tl 1)
+INSET_BORDER = WORK_W                # white 0.5 pt border round a single inset, so it separates from the image
+INSET_BOX = CLAIM_W                  # the box marking the zoomed region; vector-drawn boxes measure 0.27 to 0.97 pt
 INSET_BOX_COLOUR = ACCENT            # the region the claim is about; the one accent mark a grid spends
+ZOOM_COLOURS = (ACCENT, SERIES_BRIGHT[0])  # a second box pairs with its crop by colour, as StableSR F1's red and
+                                     # blue do; Tol's bright blue is a per-figure series colour, where CLAIM_LINE is
+                                     # the objective of the diagrams and may not mean a second region
+ZOOM_MAGNIFICATION = 3.0             # median of 23 zoomed comparisons (IQR 2.0-3.5, range 1.3-4.0)
+ZOOM_MAGNIFICATION_WARN = 2.0        # the lower quartile: under it an inset mostly repeats its panel
+ZOOM_MAGNIFICATION_FAIL = 1.3        # the smallest surveyed (DiffBIR F1): under it the inset magnifies nothing
+ZOOM_SOURCE_PX_PER_PT = 1.5          # DERIVED, not measured: under this an inset prints each source pixel as a block
+                                     # of 0.7 pt or more, so it magnifies interpolation. Measured: the zero-shot solver
+                                     # papers, on 64-256 px images, zoom in 6 of 31 comparisons
 PIXELS_PER_PT = 4.2                  # raster panels are resampled to this density before placement (600 dpi)
 
 # --- Whitespace ------------------------------------------------------------------------------------

@@ -243,6 +243,183 @@ def audit(fig, overlap_tol_pt: float = 0.3) -> list[tuple[str, str]]:
                 stray.add(h)
     if stray:
         issues.append(("WARN", f"colours outside the palette: {sorted(stray)[:8]}"))
+    if getattr(fig, "_af_kind", None) == "grid":
+        issues += audit_grid(fig)
+    return issues
+
+
+# --- the grid audit ----------------------------------------------------------------------------------
+def _pt_rect(fig, ax):
+    """An axes' rectangle (x0, y0, x1, y1) in points from the figure's bottom-left corner."""
+    w, h = fig.get_size_inches() * 72.0
+    b = ax.get_position()
+    return (b.x0 * w, b.y0 * h, b.x1 * w, b.y1 * h)
+
+
+def _edge_merges(a, b, levels):
+    """Share of an abutting edge whose luminance steps under `levels` of 255: a and b are the two edge lines, (n, 3)."""
+    import numpy as np
+    lum = lambda v: (np.asarray(v, dtype=float)[..., :3] * (255.0 if np.asarray(v).dtype.kind == "f" else 1.0)
+                     ) @ np.array([0.299, 0.587, 0.114])
+    la, lb = lum(a), lum(b)
+    if len(la) != len(lb):                                   # panels of one grid share a side; resample if not
+        lb = np.interp(np.linspace(0, 1, len(la)), np.linspace(0, 1, len(lb)), lb)
+    return float((np.abs(la - lb) < levels).mean())
+
+
+def audit_grid(fig) -> list[tuple[str, str]]:
+    """The checks a result grid needs beyond audit(). Each threshold is a number measured on flagship grids and held
+    in contract.py; references/qualitative.md gives the survey. Geometry is read off the live figure, so a grid built
+    by hand is checked too; magnification needs the zoom record that grid() leaves in fig._af_grid."""
+    import statistics
+
+    import numpy as np
+    from matplotlib.patches import Rectangle
+    st_median = statistics.median
+    issues = []
+    meta = getattr(fig, "_af_grid", None) or {}
+    renderer = fig.canvas.get_renderer()
+    px_per_pt = fig.dpi / 72.0
+    img = [ax for ax in fig.axes if ax.images and ax.get_visible()]
+    rect = {ax: _pt_rect(fig, ax) for ax in img}
+    role = lambda ax: getattr(ax, "_af_role", None)
+
+    def inside(a, b):
+        ra, rb = rect[a], rect[b]
+        return a is not b and ra[0] >= rb[0] - 0.05 and ra[1] >= rb[1] - 0.05 and ra[2] <= rb[2] + 0.05 \
+            and ra[3] <= rb[3] + 0.05
+
+    insets = [a for a in img if role(a) == "inset" or (role(a) is None and any(inside(a, o) for o in img))]
+    panels = [a for a in img if a not in insets and role(a) != "crop"]
+    if not panels:
+        return issues
+    rows = []
+    for ax in sorted(panels, key=lambda a: -rect[a][3]):
+        if rows and abs(rect[rows[-1][0]][3] - rect[ax][3]) < 1.0:
+            rows[-1].append(ax)
+        else:
+            rows.append([ax])
+    for row in rows:
+        row.sort(key=lambda a: rect[a][0])
+    side = lambda a: (rect[a][2] - rect[a][0], rect[a][3] - rect[a][1])
+
+    # 1. the panel floor, and one panel size per row
+    p = min(min(side(a)) for a in panels)
+    if p < C.GRID_PANEL_FLOOR - 0.05:
+        issues.append(("WARN", f"panels {p:.1f} pt, under the {C.GRID_PANEL_FLOOR} pt of the smallest panel in 90 "
+                               f"flagship qualitative figures (DDNM Fig. 4): fewer columns, or the text width"))
+    uneven = []
+    for i, row in enumerate(rows):
+        ws, hs = [side(a)[0] for a in row], [side(a)[1] for a in row]
+        if (max(ws) - min(ws)) / max(ws) > 0.01 or (max(hs) - min(hs)) / max(hs) > 0.01:
+            uneven.append(f"row {i}: {min(ws):.1f} to {max(ws):.1f} pt")
+    if uneven:
+        issues.append(("WARN", f"unequal panels within a row ({'; '.join(uneven[:4])}): a comparison gives every method "
+                               f"the same area"))
+
+    # 2. seams inside a block, block gaps, and abutting edges that vanish
+    kinds = [k for k, _ in meta.get("gaps", [])]
+    seams, blocks_, merged = [], [], []
+    for i, row in enumerate(rows):
+        g = [rect[b][0] - rect[a][2] for a, b in zip(row, row[1:])]
+        if not g:
+            continue
+        kk = kinds if len(kinds) == len(g) else ["block" if x > st_median(g) + 1.5 else "seam" for x in g]
+        seams += [x for x, k in zip(g, kk) if k == "seam"]
+        blocks_ += [x for x, k in zip(g, kk) if k == "block"]
+        for a, b, x in zip(row, row[1:], g):
+            if x <= C.GRID_ABUT and _edge_merges(np.asarray(a.images[0].get_array())[:, -1],
+                                                 np.asarray(b.images[0].get_array())[:, 0], C.GRID_MERGE_LEVELS) > 0.5:
+                merged.append(f"row {i}")
+    for up, down in zip(rows, rows[1:]):
+        for a in up:
+            b = next((d for d in down if abs(rect[d][0] - rect[a][0]) < 1.0), None)
+            if b is not None and rect[a][1] - rect[b][3] <= C.GRID_ABUT and _edge_merges(
+                    np.asarray(a.images[0].get_array())[-1], np.asarray(b.images[0].get_array())[0],
+                    C.GRID_MERGE_LEVELS) > 0.5:
+                merged.append("between rows")
+    if seams and max(seams) > C.GRID_SEAM_MAX + 0.05:
+        issues.append(("WARN", f"seams up to {max(seams):.1f} pt, past the {C.GRID_SEAM_MAX} pt within which 76 of 78 "
+                               f"measured reconstruction grids lie (median 2.5)"))
+    if seams and max(seams) - min(seams) > 0.3:
+        issues.append(("WARN", f"seams from {min(seams):.1f} to {max(seams):.1f} pt inside one block: an odd seam reads "
+                               f"as a grouping; give blocks their own gap (blocks=)"))
+    seam = st_median(seams) if seams else 0.0
+    if blocks_ and seam > C.GRID_ABUT and min(blocks_) < C.GRID_BLOCK_RATIO * seam:
+        issues.append(("WARN", f"a block gap of {min(blocks_):.1f} pt is under {C.GRID_BLOCK_RATIO} seams of "
+                               f"{seam:.1f} pt, so the blocks do not read as blocks (the tightest measured: ReSample "
+                               f"Fig. 5 2.2x, D-Flow Fig. 5 2.3x)"))
+    if merged:
+        issues.append(("WARN", f"abutting panels merge along {len(merged)} edges ({', '.join(sorted(set(merged)))}): "
+                               f"their edge luminance steps under {C.GRID_MERGE_LEVELS:.0f} of 255 on most of the "
+                               f"edge; use the {C.GRID_SEAM} pt seam"))
+    issues.append(("INFO", f"grid: {len(rows)} rows of {max(len(r) for r in rows)} panels at {p:.1f} pt, seams "
+                           f"{seam:.2f} pt" + (f", block gaps {min(blocks_):.1f} pt" if blocks_ else "")))
+
+    # 3. a zoom box under an inset of its own panel hides the region it marks
+    covered = []
+    for ax in panels:
+        boxes = []
+        for pa in ax.patches:
+            if isinstance(pa, Rectangle) and not pa.get_fill() and pa.get_visible():
+                e = pa.get_window_extent(renderer)
+                half = pa.get_linewidth() / 2.0
+                boxes.append((e.x0 / px_per_pt - half, e.y0 / px_per_pt - half, e.x1 / px_per_pt + half,
+                              e.y1 / px_per_pt + half))
+        for ins in (i for i in insets if inside(i, ax)):
+            r = rect[ins]
+            if any(min(b[2], r[2]) - max(b[0], r[0]) > 0.1 and min(b[3], r[3]) - max(b[1], r[1]) > 0.1 for b in boxes):
+                covered.append(ax)
+                break
+    if covered:
+        where = sorted({(next(i for i, row in enumerate(rows) if a in row)) for a in covered})
+        issues.append(("FAIL", f"zoom box covered by an inset of its own panel in {len(covered)} panels (rows {where}):"
+                               f" the region it marks is hidden; move or shrink the box, or use zoom_style='row'"))
+
+    # 4. magnification and the source pixels an inset shows, from grid()'s zoom record
+    zooms = meta.get("zooms", [])
+    if zooms:
+        mags = [z["magnification"] for z in zooms]
+        mc = meta.get("measurement_col")
+        dens = [z["px_per_pt"] for z in zooms if z["col"] != mc]
+        lo = min(mags)
+        z0 = min(zooms, key=lambda z: z["magnification"])
+        side_px = z0["box_side"] * lo / C.ZOOM_MAGNIFICATION          # in the pixels the zoom boxes are given in
+        hint = f"a box of about {side_px:.0f} px gives the survey's median {C.ZOOM_MAGNIFICATION:.0f}x"
+        if lo < C.ZOOM_MAGNIFICATION_FAIL:
+            issues.append(("FAIL", f"a zoom magnifying {lo:.2f}x, under the {C.ZOOM_MAGNIFICATION_FAIL}x of the least "
+                                   f"magnifying flagship zoom: it repeats the panel; {hint}"))
+        elif lo < C.ZOOM_MAGNIFICATION_WARN:
+            issues.append(("WARN", f"a zoom magnifying {lo:.2f}x, under the {C.ZOOM_MAGNIFICATION_WARN}x lower quartile "
+                                   f"of 23 flagship zooms (median 3.0x); {hint}"))
+        if dens and min(dens) < C.ZOOM_SOURCE_PX_PER_PT:
+            issues.append(("WARN", f"an inset shows {min(dens):.2f} source pixels per printed point, under "
+                                   f"{C.ZOOM_SOURCE_PX_PER_PT}: it magnifies interpolation, not detail; zoom a larger "
+                                   f"image, or drop the zoom, as the solver papers on 64 to 256 px images do"))
+        issues.append(("INFO", f"zoom ({meta.get('zoom_style')}): magnification {lo:.2f} to {max(mags):.2f}x, "
+                               f"{min(dens) if dens else float('nan'):.2f} source px per pt at the least"))
+
+    # 5. headers that do not fit their column, or sit outside the measured sizes; row labels longer than their row
+    wide, odd = [], []
+    for t, room in meta.get("headers", []):
+        w = t.get_window_extent(renderer).width / px_per_pt
+        if w > room - 1.0:
+            wide.append(f"'{t.get_text()[:16]}' {w:.1f} pt in {room:.1f}")
+        if not C.GRID_HEADER_PT[0] <= t.get_fontsize() <= C.GRID_HEADER_PT[1]:
+            odd.append(f"'{t.get_text()[:16]}' {t.get_fontsize():.1f} pt")
+    if wide:
+        issues.append(("WARN", f"headers wider than their columns: {wide[:4]}; abbreviate, or give the grid fewer "
+                               f"columns"))
+    if odd:
+        issues.append(("WARN", f"headers outside the {C.GRID_HEADER_PT[0]} to {C.GRID_HEADER_PT[1]} pt of flagship "
+                               f"grids (interquartile range): {odd[:4]}"))
+    long_ = []
+    for t, height in meta.get("row_labels", []):
+        h = t.get_window_extent(renderer).height / px_per_pt
+        if h > height:
+            long_.append(f"'{t.get_text()[:16]}' {h:.1f} pt on a {height:.1f} pt row")
+    if long_:
+        issues.append(("WARN", f"row labels longer than their rows: {long_[:4]}; shorten them"))
     return issues
 
 

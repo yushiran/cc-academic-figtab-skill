@@ -88,20 +88,38 @@ flagship convention (only SSDM-MRI in our survey uses one) and needs a reason.
 
 ## 7. Result grids (qualitative figures and teasers)
 
+Measured 2026-09-23 on 90 flagship qualitative figures from 33 papers: the image placements of 87, every figure read
+by eye. `qualitative.md` holds the design guide, the counts behind each row below and the limits of the evidence. The
+0 pt seams of 0.1.x came from one grid, DAPS Fig. 1(a), which is a single raster; the grids assembled from separate
+images mostly do not abut.
+
 | rule | value | source |
 | --- | --- | --- |
-| axes of the grid | methods across the columns, tasks or images down the rows | DPS, FlowDPS, Flower, SSDM-MRI |
-| column order | measurement, baselines, ours, ground truth | DPS, FlowDPS |
-| seams | **0 pt** between reconstructions, horizontally and vertically, so the eye diffs across the edge and each panel gets the largest side the width allows | DAPS Fig. 1, measured |
-| the one exception | when adjacent panels share a tone at their boundary (two skies, two dark backgrounds) and an abutting edge would vanish, **every** seam becomes **1.0 pt** white (`grid(..., seam=C.GRID_SEAM_FALLBACK)`); never one seam alone | a grid with one odd seam reads as a grouping |
-| the measurement column | set off by **1.8 pt**, whatever the seam: the measurement is an input, not an output | DAPS Fig. 1: 4 px of a 111 px panel |
-| strength of the evidence | the seam rule rests on one measured exemplar, DAPS, plus the reading argument above; DPS, FlowDPS and Flower have not been measured | re-measure when a second grid is borrowed from |
-| headers | above the first row, 6.5 pt, 2 pt above the panels | |
-| numbers | at most one row, under the method columns only, 6.5 pt; never on the image | DAPS Fig. 1; DPS, DiffPIR, FlowDPS keep them in tables |
-| zoom inset | a 0.9 pt box in the accent on the full image; the crop magnified in the panel's own bottom-right corner at 42 % of its width, with a 0.5 pt white border | FlowDPS Fig. 3 (DAPS puts crops in a row below, which costs a row per task) |
-| resampling | to 4.2 px per pt before placement, LANCZOS for images, NEAREST for masks | 600 dpi at print |
-| panel side | large enough to show the failure that justifies the row; a hole-fill reads at 45 pt, texture needs an inset | |
-| image choice | by the spread between methods, printed as a ranked list, and then by eye; the chosen ids written into the script | a figure is where a paper can lie; the choice has to be auditable |
+| the claim | one sentence naming a failure the reader sees at print size, written before any image is chosen | strong comparisons show a baseline failing outright, readable content or a half-panel inset; weak ones sit at the ceiling |
+| axes of the grid | methods across the columns; one row per image, task or condition | 37 of 48 baseline comparisons; a wrapped crop grid in 9 (restoration networks); methods down the rows in 2, for a severity sweep |
+| column order | the measurement first; the ground truth at one end of the run, the same end in every figure; ours the last method column | measurement first in 36 of 56; ground truth first 19, right after the measurement 11, last 11; ours the last method column in 38 of 56 |
+| ours | a plain "Ours" header at the weight of the others; no frame, colour or badge | position or a plain header in 35 of 56, bold 17, a frame 1 (DDNM Fig. 3) |
+| size of the figure | 2 to 5 methods and 2 to 4 rows in the main text; every method in the supplement | median 4 methods (IQR 3 to 5), median 3 rows |
+| panel side | 60 to 80 pt at text width, never under **28.5 pt** | comparisons: median 62.8 pt at text width (IQR 57.5 to 78.1), 55.3 at column width; 28.5 pt is the smallest of the 90 (DDNM Fig. 4) |
+| seams | **2.5 pt** of white, in both directions (`C.GRID_SEAM`) | median 2.48 over 54 comparisons (IQR 1.36 to 2.99, 3.7 % of the panel side), 6 abut; vertical against horizontal, median ratio 0.95 |
+| seams of a sample grid | **0 pt** (`C.GRID_SEAM_SAMPLES`) | 8 of 9 generation sample grids abut |
+| seam range | 0 to 4.9 pt, equal inside a block | 76 of 78 reconstruction grids |
+| an abutting edge | steps at least 8 of 255 in luminance along most of its length, or it gets a seam | SOLO teaser v02: two MRI knees stepping 2.1 to 7.0 read as one panel |
+| the measurement column | takes the seam; set off by **2.0 pt** only when the reconstructions abut | 30 of 32 give it the seam; LDM Fig. 8 2.0, ReSample Fig. 3 2.4 and DAPS Fig. 1(a) 1.4, all at 0 pt seams |
+| column blocks | **9.3 pt** between blocks, at least 2.2 seams (`blocks=`) | median of 21 block gaps (IQR 6.1 to 14.3); DAPS Fig. 8 2.2 pt inside, 10.9 between; ReSample Fig. 5 2.2 seams, D-Flow Fig. 5 2.3 |
+| headers | above the first row, at the word size, 2 pt above the panels, narrower than their column | above in 17 of 31 solver-paper comparisons; flagship sizes 6.25 to 8.9 pt (IQR over 41, median 7.8) |
+| row labels | rotated on the left (`row_labels=`), shorter than the row | rotated in 14 of 90, horizontal in 7; a caption line under each row costs 9.5 pt of height per row |
+| numbers | at most one row, under the method columns, never on the image; the caption names metric and unit | none in 33 of 56, under 15, on the panel 7; 6 of the 23 that print numbers define them |
+| zoom | none, unless the claim is texture on a large image | none in 32 of 56; the solver papers zoom none of their 64 to 256 px natural images |
+| zoom style | an overlaid inset in a free corner, or a crop row under the image row (`zoom_style="row"`) | crops beside a full image 10, inset 9, crop row 5 (DAPS Fig. 1c to d, DDS Figs. 7 to 8, FLAIR) |
+| inset | **0.40** of the panel, bottom-right first, never over its own box; a 0.5 pt white edge | 16 vector-placed insets, 0.24 to 0.60; bottom-right 9 of 16; `save()` fails a covered box |
+| magnification | **3×**; warn under 2×, fail under 1.3× | median of 23 zooms (IQR 2.0 to 3.5, range 1.3 to 4.0) |
+| source pixels in an inset | at least 1.5 per printed point | derived: under it each source pixel prints as a block of 0.7 pt or more; DDS Fig. 9 shows about 1.6 |
+| zoom boxes | 0.9 pt in the accent, one per panel; a second in Tol's bright blue `#4477AA` (`C.ZOOM_COLOURS`), each crop framed in its box's colour | 1 box in 18, 2 in 2 (StableSR Fig. 1, DAPS Fig. 1); vector-drawn boxes 0.27 to 0.97 pt (median 0.74) |
+| resampling | to 4.2 px per pt before placement, LANCZOS for images, NEAREST for masks and pixel-showing inputs | 600 dpi at print |
+| the measurement shown | the exact y the reconstructions answer: saved when the problem is solved, or rebuilt and checked against the logged measurement error | SOLO fig9 and 28 grids showed a noise draw no arm solved until 2026-09-23 |
+| image choice | a rule fixed before looking, stated in the caption, the chosen ids written into the script | a selection statement in 2 of 56 comparisons and 6 of 9 sample grids |
+| the supplement | the first n test images by id, every method, captioned "no selection" | JiT Fig. 8; DAPS's 15 appendix grids |
 
 ## 8. Whitespace
 
