@@ -1,6 +1,6 @@
 {
   "name": "academic-figtab",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Paper figures and results tables from experiment results, in one paper's style, with the review gate in code: budget and Pareto plots, qualitative and teaser result grids at print size; tables built from the result files with computed marks, verified against them, and audited in the LaTeX source",
   "author": {
     "name": "Shiran Yu"
