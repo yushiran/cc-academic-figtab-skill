@@ -1,9 +1,9 @@
 ---
-name: academic-figure
+name: academic-figtab
 description: Use when making any figure or results table of an ML paper whose content is numbers or images the experiments produced — a budget or Pareto plot, an ablation curve, a bar comparison, a qualitative comparison grid, a teaser result grid, a training curve, a main comparison or ablation table — or when a figure or table was rejected as not matching the paper's style, not at flagship level, not print-ready, with a caption too long, marks that are wrong, or names that drift. Method and architecture diagrams go to academic-figure-figma.
 ---
 
-# academic-figure
+# academic-figtab
 
 Paper figures at print size in the paper's own style, with the review gate in code. The rules are numbers
 measured from accepted flagship figures (He Kaiming's MoCo, MAE, iMF, JiT, BNF; DAPS, the CVPR 2025 oral; FlowDPS,

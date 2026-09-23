@@ -1,4 +1,4 @@
-# academic-figure
+# academic-figtab
 
 A Claude Code skill for the figures and tables of an ML paper that are made of results: budget and Pareto
 plots, ablation curves, qualitative comparison grids, teaser result grids, results tables. It draws the figures
@@ -63,8 +63,12 @@ tables of 44 papers and 36 flagship tables read one by one.
 
 ```sh
 claude plugin marketplace add yushiran/academic-skills
-claude plugin install academic-figure@yushiran-research
+claude plugin install academic-figtab@yushiran-research
 ```
+
+Until 0.4.0 the plugin was called `academic-figure` and lived at `cc-academic-figure-skill`; an old install is
+removed with `claude plugin uninstall academic-figure@yushiran-research`. The Python package keeps its name,
+`academic_figure`, so figure scripts need no change beyond the path they insert.
 
 Requires matplotlib, numpy and Pillow; the table tools are pure Python and read a canon file with PyYAML. The
 Arimo font is bundled (SIL OFL 1.1).
