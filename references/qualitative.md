@@ -49,6 +49,10 @@ rule in the caption.
 3. Choose by eye from a printed list of the top candidates with every method's numbers, and write down each departure
    from rank 1 with its reason (SOLO fig9 took rank 4 for deblurring because rank 1 was a dark image).
 4. Every method in a row shows the same image.
+5. A figure with no baseline column (a block whose baselines were cited, not run) shows the images where ours scores
+   highest, one image per row so two rows show two anatomies or scenes, and says so ("the slice with our highest PSNR
+   at each acceleration"). Without a competitor in the frame a typical image proves nothing, and a curated one is
+   honest as long as the caption names the rule (the author's call, SOLO MRI figure, 2026-09-23).
 
 The caption carries the rule in one clause. For a main figure: "Images: the largest spread between methods among the
 1000 test images, rank 1 in each row except deblurring (rank 4, a brighter face)." For the supplement: "The first
