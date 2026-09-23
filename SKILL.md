@@ -69,8 +69,11 @@ Full table with sources in `references/contract.md`. The values that decide most
   visible failure per row or the row goes to the supplement; methods across the columns, measurement first, ours the
   last method column under a plain "Ours"; 2.5 pt seams both ways (0 pt only for generated samples), 9.3 pt between
   column blocks; panels as large as the width allows, never under 28.5 pt; no zoom unless the claim is texture on a
-  large image, then 3× at 0.40 of the panel in a free corner with a 0.9 pt accent box; the selection rule stated in
-  the caption; an uncurated supplementary grid of the first test images as the backstop.
+  large image, then 3× at 0.40 of the panel in a free corner with a 0.9 pt accent box, or on 256 px images a crop
+  row at the largest magnification that keeps 1.5 source pixels per point; the selection rule stated in the caption;
+  an uncurated supplementary grid of the first test images as the backstop. Main-text space is the scarce resource:
+  two or three image rows there (a single column with the strongest baseline, ours and the truth when that carries
+  the claim), the full grid in the supplement; drop the weakest baseline before shrinking the panels.
 - **Tables** (421 tables of 44 papers measured, 36 flagship tables read, `references/tables.md`): caption above, 25
   to 50 words (main-text median 25; fail over 80), a title plus the setting, never the verdict or the column heads;
   `[t]`, never `[p]`; booktabs, no vertical rule, no `\hline`; `\footnotesize`, numbers in `r` columns at one
