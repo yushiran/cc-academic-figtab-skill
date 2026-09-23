@@ -1,6 +1,6 @@
 ---
 name: academic-figure
-description: Use when making any figure of an ML paper whose content is numbers or images the experiments produced — a budget or Pareto plot, an ablation curve, a bar comparison, a qualitative comparison grid, a teaser result grid, a training curve — or when a figure was rejected as not matching the paper's style, not at flagship level, or not print-ready. Method and architecture diagrams go to academic-figure-figma.
+description: Use when making any figure or results table of an ML paper whose content is numbers or images the experiments produced — a budget or Pareto plot, an ablation curve, a bar comparison, a qualitative comparison grid, a teaser result grid, a training curve, a main comparison or ablation table — or when a figure or table was rejected as not matching the paper's style, not at flagship level, not print-ready, with a caption too long, marks that are wrong, or names that drift. Method and architecture diagrams go to academic-figure-figma.
 ---
 
 # academic-figure
@@ -38,6 +38,7 @@ from academic_figure import figure, save, budget, grid, mixed_label, mixed_xlabe
    | --- | --- | --- |
    | quality against compute | `budget(ax, ours=[(x, y, N)], baselines=[(name, x, y)], operating=4, compare_to="Flower", reference=("RAM, no prior evaluations", y))` | DAPS Fig. 6 |
    | qualitative grid, teaser grid, supplementary sample grid | `grid(panels, headers, row_labels=..., blocks=..., numbers=..., zoom={row: box}, zoom_style="inset"\|"row")`; design first with `references/qualitative.md` (claim, content, selection rule, layout, caption) | DAPS Figs. 1 and 8, ReSample Fig. 7, PnP-Flow Fig. 6, JiT Fig. 8 |
+   | results table | `from academic_figure.tables import Column, Row, header, build, verify`; `build()` writes the body with the marks computed from the data, `verify()` must return `[]`, then `scripts/audit_tables.py <paper_dir> --canon names.yaml`; contract and workflow in `references/tables.md` | DAPS Tab. 1, MAE Tab. 1, InverseBench Tab. 1 |
    | anything else | `figure()` plus matplotlib, colours only from `C` | the closest exemplar in `references/exemplars.md` |
 
 4. **Save.** `save(fig, "figs/name.pdf", reference="<path of the reference image>")`. It closes the page to the
@@ -70,6 +71,13 @@ Full table with sources in `references/contract.md`. The values that decide most
   column blocks; panels as large as the width allows, never under 28.5 pt; no zoom unless the claim is texture on a
   large image, then 3× at 0.40 of the panel in a free corner with a 0.9 pt accent box; the selection rule stated in
   the caption; an uncurated supplementary grid of the first test images as the backstop.
+- **Tables** (421 tables of 44 papers measured, 36 flagship tables read, `references/tables.md`): caption above, 25
+  to 50 words (main-text median 25; fail over 80), a title plus the setting, never the verdict or the column heads;
+  `[t]`, never `[p]`; booktabs, no vertical rule, no `\hline`; `\footnotesize`, numbers in `r` columns at one
+  precision per metric; bold best per column, underline the second only when the text uses the runner-up and never
+  in a scope under three rows, both ranked on the printed values so ties share a mark, at most 40 % of cells marked,
+  and any scope other than per column stated in the caption; an arrow on every ranked column; ours in the last rows
+  below a dashed rule, tinted; one name per method, metric, task and dataset, from a canon file.
 - **Whitespace** gutters at most 10 pt; ink 4 to 15 % for a plot, 20 to 40 % for a method figure.
 
 ## What reviewers see first
@@ -93,6 +101,9 @@ the checks with the evidence behind each.
 | `$\sigma_y$` inside `set_xlabel` or a legend entry | the symbol prints at 6.5 pt, visibly smaller than the words | `mixed_xlabel()`; word the legend |
 | a label offset past the top of its axes | it hangs in the margin, half a line above the frame | `save()` warns; move it, or widen the limits |
 | a step of 3 FID drawn on an axis 90 FID wide | the arrow is 8 pt long and hides under its own markers | zoom the cluster in an inset (F3 of the paper) |
+| bold and underline typed by hand | 14 marks in two tables that the printed values do not earn, ties broken on unrounded means | `build()` ranks on the printed values; `verify()` |
+| a table caption that carries the argument | 64 to 130 words, taller than the table it captions | 25 to 50 words; the verdict goes in the text |
+| one task named two ways across tables | "Gaussian deblurring" in the main tables, "Blur" in two supplementary ones | a canon file and `check_names()` |
 | handing over before reading the render | every defect above shipped once | rule 4 |
 
 ## Files
@@ -105,4 +116,9 @@ the checks with the evidence behind each.
   figures by paper and number, and what to take from each. `references/reviewer.md` — what a reviewer checks.
 - `academic_figure/grids.py`, `scripts/measure_grids.py` — measure the result grids of any PDF (the evidence behind
   §7); `academic_figure/tables_measure.py`, `scripts/measure_tables.py` — the same for tables.
-- `examples/` — runnable scripts that draw one figure of each type from bundled data, and double as the tests.
+- `academic_figure/tables.py` — `Column`, `Row`, `header`, `build`, `verify`, `caption_report`, `load_canon`,
+  `check_names`, `audit_tex`; pure Python, no matplotlib. `scripts/audit_tables.py` — audits every table of a paper
+  in its LaTeX source with no spec. `references/tables.md` — the table contract with its sources, the workflow and
+  the common mistakes.
+- `examples/` — runnable scripts that draw one figure of each type from bundled data, and double as the tests;
+  `examples/test_tables.py` does the same for the table tools.
