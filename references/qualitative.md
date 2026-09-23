@@ -86,7 +86,7 @@ where a figure can be more honest than the field at no cost.
 | zoom boxes | one per panel; a second one only in its own colour, with its crop framed in that colour | 1 box in 18 comparisons, 2 in 2 (StableSR Fig. 1 red and blue, DAPS Fig. 1 green and red) |
 | box stroke and colour | 0.9 pt in the accent; a second box in Paul Tol's bright blue `#4477AA`, a per-figure series colour (the diagrams' claim blue already means the objective) | vector-drawn boxes 0.27 to 0.97 pt (median 0.74, n = 10); colours red 9, amber 3, green 3, lavender 2, so a warm hue dominates and the accent is the paper's one warm mark |
 | headers | above the first row, at the word size, 2 pt above the panels, narrower than their column | above in 17 of the 31 solver-paper comparisons; below in 19 of the 25 in the other papers, the restoration networks among them; flagship sizes 6.25 to 8.9 pt (IQR over 41, median 7.8), which holds the contract's 6.5 |
-| row labels | rotated on the left, one per task or condition row, shorter than the row | rotated in 14 of the 90 qualitative figures (FLAIR Fig. 2, ReSample Fig. 3, DDRM Fig. 1), horizontal in 7; a caption line under each row costs 9.5 pt of height per row, a rotated label 9.8 pt of width once |
+| row labels | rotated on the left, one per task or condition row, shorter than the row; a label longer than its row is set on two lines, and the gutter is one line thick per line of text (`grid()` counts the lines; a label placed by hand on a one-line gutter puts its second line 5 pt into the first panel) | rotated in 14 of the 90 qualitative figures (FLAIR Fig. 2, ReSample Fig. 3, DDRM Fig. 1), horizontal in 7; a caption line under each row costs 9.5 pt of height per row, a rotated label 9.8 pt of width once, 17.6 pt for two lines |
 | sub-panel letters | only for blocks the caption refers to by letter | 15 of 56 comparisons |
 | numbers | never on the image; at most one row, under the method columns, with the metric named in the caption | none in 33 of 56, under the panels 15, on the panel 7; only 6 of the 23 figures that print numbers define them in the caption, and 5 more put the metric's name in the reference panel's number slot (Restormer, NAFNet) |
 | error maps | not on natural images | 2 of 90 (DDS Figs. 7 to 8, viridis, MRI) |
@@ -179,7 +179,8 @@ with NEAREST before it is passed. A grid built by hand sets `fig._af_kind = "gri
 
 `save()` then checks what code can:
 
-- FAIL: a zoom box under an inset of its own panel; a zoom magnifying under 1.3×.
+- FAIL: a zoom box under an inset of its own panel; a zoom magnifying under 1.3×; a row label whose extent reaches into
+  any image (measured against every image axes, tolerance 0.3 pt).
 - WARN: panels under 28.5 pt; unequal panels within a row; seams over 4.9 pt, or unequal inside a block; a block gap
   under 2.2 seams; an abutting edge that steps under 8 of 255 in luminance along most of its length; a zoom
   magnifying under 2.0×; an inset showing under 1.5 source pixels per point; a header wider than its column or outside

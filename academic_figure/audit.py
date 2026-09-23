@@ -413,13 +413,27 @@ def audit_grid(fig) -> list[tuple[str, str]]:
     if odd:
         issues.append(("WARN", f"headers outside the {C.GRID_HEADER_PT[0]} to {C.GRID_HEADER_PT[1]} pt of flagship "
                                f"grids (interquartile range): {odd[:4]}"))
-    long_ = []
+    long_, inside_ = [], []
     for t, height in meta.get("row_labels", []):
-        h = t.get_window_extent(renderer).height / px_per_pt
+        e = t.get_window_extent(renderer)
+        h = e.height / px_per_pt
         if h > height:
             long_.append(f"'{t.get_text()[:16]}' {h:.1f} pt on a {height:.1f} pt row")
+        # the label must stay in its gutter: a second line of a two-line label drawn on a one-line gutter lands on
+        # the first panel (SOLO Fig. 6, 2026-09-23); the gutter is a property of the layout, so this is a FAIL
+        x0, y0, x1, y1 = (v / px_per_pt for v in (e.x0, e.y0, e.x1, e.y1))
+        for ax in img:
+            r = rect[ax]
+            dx = min(x1, r[2]) - max(x0, r[0])
+            dy = min(y1, r[3]) - max(y0, r[1])
+            if dx > 0.3 and dy > 0.3:
+                inside_.append(f"'{t.get_text().replace(chr(10), ' ')[:20]}' {dx:.1f} pt into a panel")
+                break
     if long_:
         issues.append(("WARN", f"row labels longer than their rows: {long_[:4]}; shorten them"))
+    if inside_:
+        issues.append(("FAIL", f"row labels drawn over the images: {inside_[:4]}; grid() sizes the gutter by the "
+                               f"label's line count, so a label placed by hand needs the gutter widened"))
     return issues
 
 

@@ -109,7 +109,7 @@ images mostly do not abut.
 | the measurement column | takes the seam; set off by **2.0 pt** only when the reconstructions abut | 30 of 32 give it the seam; LDM Fig. 8 2.0, ReSample Fig. 3 2.4 and DAPS Fig. 1(a) 1.4, all at 0 pt seams |
 | column blocks | **9.3 pt** between blocks, at least 2.2 seams (`blocks=`) | median of 21 block gaps (IQR 6.1 to 14.3); DAPS Fig. 8 2.2 pt inside, 10.9 between; ReSample Fig. 5 2.2 seams, D-Flow Fig. 5 2.3 |
 | headers | above the first row, at the word size, 2 pt above the panels, narrower than their column | above in 17 of 31 solver-paper comparisons; flagship sizes 6.25 to 8.9 pt (IQR over 41, median 7.8) |
-| row labels | rotated on the left (`row_labels=`), shorter than the row | rotated in 14 of 90, horizontal in 7; a caption line under each row costs 9.5 pt of height per row |
+| row labels | rotated on the left (`row_labels=`), shorter than the row; two lines when one is longer than the row, with the gutter one line thick per line of text; never over an image (audit FAIL) | rotated in 14 of 90, horizontal in 7; a caption line under each row costs 9.5 pt of height per row, a two-line gutter 17.6 pt of width once |
 | numbers | at most one row, under the method columns, never on the image; the caption names metric and unit | none in 33 of 56, under 15, on the panel 7; 6 of the 23 that print numbers define them |
 | zoom | none, unless the claim is texture on a large image | none in 32 of 56; the solver papers zoom none of their 64 to 256 px natural images |
 | zoom style | an overlaid inset in a free corner, or a crop row under the image row (`zoom_style="row"`) | crops beside a full image 10, inset 9, crop row 5 (DAPS Fig. 1c to d, DDS Figs. 7 to 8, FLAIR) |

@@ -266,7 +266,10 @@ def grid(panels, headers, venue="cvpr", span="full", numbers=None, number_row=No
         C.GRID_MEASUREMENT_GAP if seam <= C.GRID_ABUT else seam)
     gaps = [("block", block_gap) if c in starts else ("measurement", mgap) if m and c == measurement_col + 1
             else ("seam", seam) for c in range(1, nc)]
-    lab = (1.2 * C.WORD_PT + C.GRID_ROW_LABEL_GAP) if row_labels else 0.0   # a rotated label is one line high
+    # a rotated label is one line thick per line of text: a two-line label ("Super-resolution\n×4") needs two, or its
+    # second line lands inside the first panel (SOLO Fig. 6, 2026-09-23)
+    lab_lines = max((str(l).count("\n") + 1 for l in row_labels if l), default=1) if row_labels else 0
+    lab = (lab_lines * 1.2 * C.WORD_PT + C.GRID_ROW_LABEL_GAP) if row_labels else 0.0
     p = (W - lab - sum(g for _, g in gaps)) / nc                              # panel side in points
     xs = [lab]
     for _, g in gaps:
