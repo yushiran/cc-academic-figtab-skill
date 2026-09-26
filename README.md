@@ -36,8 +36,15 @@ save(fig, "figs/budget.pdf")                             # closes the width, aud
 
 `save()` writes the PDF at the column or text width by measurement, writes a PNG twin, and fails the figure
 on overlapping or undrawn labels, text cut off by its axes, missing glyphs, a word outside Arimo or under
-6 pt, a page wider than the column, or an embedded font other than Arimo and Computer Modern. It warns on
-text over a data marker, colours outside the palette, ink outside its range and wide gutters.
+6 pt, a page wider than the column, an embedded font other than Arimo and Computer Modern, a second y axis, a
+3D axes, bars off zero, a gap label that disagrees with its data, or two kinds of error bar. It warns on text
+over a data marker or a line, colours or a colour map outside the palette, a title, offset tick text, a log
+axis that does not say so, a framed legend or one over the data, error bars of no stated kind, ink outside its
+range and wide gutters. `save(..., svg=True)` adds an SVG twin with live text for composition in Figma.
+
+The other templates: `sweep()` for an ablation, sensitivity or robustness curve over one setting, `gap()` for a
+measured difference labelled with its computed value, `radar()` and `shared_legend()` for per-metric radars,
+`mixed_ylabel()` for a y label that is part symbol, `place_labels(..., leader=True)` for crowded points.
 
 Tables:
 
@@ -55,8 +62,9 @@ uv run --with pyyaml python scripts/audit_tables.py paper/ --canon names.yaml
 ```
 
 The audit needs no spec. Per table it checks the caption's length, booktabs rules, the marks recomputed on the
-printed values under the scope that explains them best, one precision per column, and every name against a
-canon file of display names and forbidden variants. `references/tables.md` holds the contract, measured on 421
+printed values under the scope that explains them best, one precision per column, a Δ row recomputed from the
+printed cells, and every name against a canon file of display names and forbidden variants. `build(...,
+delta=...)` writes that Δ row from `improvement()`, and `component_columns()` the ✓ columns of an ablation. `references/tables.md` holds the contract, measured on 421
 tables of 44 papers and 36 flagship tables read one by one.
 
 ## Install
@@ -77,18 +85,26 @@ Arimo font is bundled (SIL OFL 1.1).
 
 ```sh
 python examples/test_examples.py
+python examples/test_plots.py
 uv run --with pyyaml python examples/test_tables.py
 ```
 
 The first draws one figure of each template from synthetic data and must pass (seven, four of them result grids);
 builds five figures with a known defect each (collided labels, a word in DejaVu, a label anchored outside its axes,
 a zoom box under its own inset, a zoom that magnifies nothing) and must fail all five; and eleven with a defect the
-audit warns about, each of which must be named. The second builds tables from synthetic results that must pass
-`verify()` and the audit (six checks), eight with a defect that must fail (a long caption, a hand-typed bold, a tie
-marked once, a vertical rule, an `\hline`, an off-canon name, a stale number, the CLI's exit code), and three that
-must warn.
+audit warns about, each of which must be named. The second does the same for the templates and checks added in
+0.5.0: seven figures that must pass (sweeps on a log and a categorical axis, a gap, a mixed y label, radars with a
+shared legend, leader lines out of a crowded cluster, an SVG twin), eight defects that must fail or be refused
+(a second y axis, a 3D axes, bars on a truncated or a log axis, a typed gap, two kinds of error bar, a reported
+setting never run, a radar with a missing value) and ten that must warn. The third builds tables from
+synthetic results that must pass `verify()` and the audit (nine checks, a Δ row and a component ablation among
+them), twelve with a defect that must fail (a long caption, a hand-typed bold, a tie marked once, a vertical
+rule, an `\hline`, an off-canon name, a stale number, a stale Δ seen by the audit and by `verify()`, two refused
+ablation codes, the CLI's exit code), and three that must warn.
 
 ## Credits
 
 Adapted in part from [scipilot-figure-skill](https://github.com/Haojae/scipilot-figure-skill) (MIT) and
-[SciencePlots](https://github.com/garrettj403/SciencePlots) (MIT); see `NOTICE`.
+[SciencePlots](https://github.com/garrettj403/SciencePlots) (MIT). Several templates and checks of 0.5.0 were
+suggested by [figures4papers](https://github.com/ChenLiu-1996/figures4papers) (CC BY-NC 4.0) and reimplemented
+against this contract, with no code taken; see `NOTICE`.

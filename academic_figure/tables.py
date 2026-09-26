@@ -111,13 +111,17 @@ def header(columns, lead=("Method",)) -> str:
     return "\n".join(out)
 
 
-def build(columns, rows, value_fn, scope="table", second=True, ours_colour=OURS_COLOUR) -> str:
+def build(columns, rows, value_fn, scope="table", second=True, ours_colour=OURS_COLOUR, delta=None, delta_ours=None,
+          relative=False) -> str:
     """The body rows of a table, one LaTeX line per row. value_fn(row_key, column_key) returns a number, a string or
     None (printed "--"). The best printed value of each ranked column is bold and the second underlined, per column
     over the whole table (scope="table") or within each run of rows sharing a class (scope="group", task blocks).
     With a class, rows sharing it are one \\multirow block; blocks are split by \\midrule when they are the marks'
     scope and by a dashed rule otherwise. Our rows are tinted cell by cell, so the tint stops at the merged class
-    cell, and a dashed rule sets them off from the rows above them in their block."""
+    cell, and a dashed rule sets them off from the rows above them in their block. `delta` names a last row, under
+    a \\midrule, of our row's difference from the best other row per ranked column (improvement(); `delta_ours` picks
+    our row when there are two), never marked; the audit recomputes it from the printed cells. It needs a label
+    that starts with Δ, such as r"$\\Delta$ over the best baseline", and scope="table"."""
     printed, marks = _expected(columns, rows, value_fn, scope, second)
     lead = 2 if any(r.cls for r in rows) else 1
     n = lead + len(columns)
@@ -138,11 +142,83 @@ def build(columns, rows, value_fn, scope="table", second=True, ours_colour=OURS_
                 span = cls and len(block) > 1
                 cells.insert(0, "" if i else (rf"\multirow{{{len(block)}}}{{*}}{{{cls}}}" if span else cls))
             out.append(" & ".join(cells) + r" \\")
+    if delta:
+        if scope != "table":
+            raise ValueError("a delta row belongs to a table ranked as a whole (scope='table'), not to task blocks")
+        if not plain(delta).startswith("Δ"):
+            raise ValueError(f"the delta row's label must start with Δ ($\\Delta$), so the audit can find it: {delta!r}")
+        out += [r"\midrule", _delta_row(columns, rows, value_fn, delta, delta_ours, relative, lead)]
     return "\n".join(out)
 
 
 def _marked(text, mark):
     return rf"\textbf{{{text}}}" if mark == "b" else rf"\underline{{{text}}}" if mark == "u" else text
+
+
+def _signed_tex(d: Decimal) -> str:
+    """A difference as a table prints it: $+$0.16, $-$0.001, and 0.00 with no sign."""
+    return f"{d:f}" if d == 0 else (r"$+$" if d > 0 else r"$-$") + f"{abs(d):f}"
+
+
+def improvement(columns, rows, value_fn, ours=None, against=None, relative=False) -> dict:
+    """{column key: the signed difference of our row from the best of the others, printed} for every ranked column,
+    None for the rest. Computed from the printed values, so a reader who subtracts two cells of the table gets the
+    same number; the text that cites "+0.42 dB over the strongest baseline" cites this. `ours` is our row's key (the
+    first row marked ours by default), `against` the keys to compare with (every row not ours by default); with
+    `relative` the difference is a percentage of the baseline, at one decimal. The idea follows RNAGenScape's
+    improvement annotation in figures4papers; no code is taken from it."""
+    mine = ours or next(r.key for r in rows if r.ours)
+    others = [r for r in rows if (r.key in against if against is not None else not r.ours)]
+    out = {}
+    for c in columns:
+        if c.direction not in ("+", "-") or c.decimals is None:
+            out[c.key] = None
+            continue
+        m = fmt(value_fn(mine, c.key), c.decimals)
+        theirs = [Decimal(p) for p in (fmt(value_fn(r.key, c.key), c.decimals) for r in others) if _isnum(p)]
+        if not _isnum(m) or not theirs:
+            out[c.key] = None
+            continue
+        best = max(theirs) if c.direction == "+" else min(theirs)
+        d = Decimal(m) - best
+        if relative:
+            out[c.key] = None if best == 0 else _signed_tex(
+                (d / abs(best) * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)) + r"\%"
+        else:
+            out[c.key] = _signed_tex(d)
+    return out
+
+
+def _delta_row(columns, rows, value_fn, delta, delta_ours, relative, lead):
+    cells = improvement(columns, rows, value_fn, ours=delta_ours, relative=relative)
+    head = rf"\multicolumn{{{lead}}}{{l}}{{{delta}}}" if lead > 1 else delta
+    return " & ".join([head] + [cells[c.key] or "" for c in columns]) + r" \\"
+
+
+def component_columns(components, codes, values=None, mark=r"\checkmark"):
+    """The ✓ columns of a component ablation: `components` [(key, header)] in column order, `codes` {row key: "101"},
+    one 0 or 1 per component. Returns (columns, value_fn): unranked text columns printing `mark` or nothing, and a
+    value_fn that answers for them and hands every other column to `values`, so they build in one table with the
+    metric columns. Refused: a code of the wrong length or with other characters, and two rows with one code, which
+    the ✓ columns could not tell apart. The idea follows ImmunoStruct's decoded ablation codes in figures4papers; no
+    code is taken from it."""
+    n = len(components)
+    for key, code in codes.items():
+        if len(code) != n or set(code) - {"0", "1"}:
+            raise ValueError(f"row {key!r}: code {code!r} needs one 0 or 1 for each of the {n} components")
+    twice = sorted(c for c, k in Counter(codes.values()).items() if k > 1)
+    if twice:
+        raise ValueError(f"codes {twice} name more than one row: rows the ✓ columns cannot tell apart")
+    index = {key: i for i, (key, _) in enumerate(components)}
+    cols = [Column(key, header, None, None) for key, header in components]
+
+    def value(row, col):
+        if col in index:
+            return mark if codes[row][index[col]] == "1" else ""
+        if values is None:
+            raise KeyError(f"{col}: not a component column and no values= given")
+        return values(row, col)
+    return cols, value
 
 
 # ------------------------------------------------------------------------------------ reading the LaTeX source
@@ -241,7 +317,7 @@ _SYM = {"times": "×", "pm": "±", "uparrow": "↑", "downarrow": "↓", "Uparro
         "approx": "≈", "dagger": "†", "ddagger": "‡", "alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ",
         "Delta": "Δ", "eta": "η", "lambda": "λ", "mu": "μ", "psi": "ψ", "theta": "θ", "epsilon": "ε",
         "varepsilon": "ε", "tau": "τ", "phi": "φ", "in": "∈", "to": "→", "rightarrow": "→", "textendash": "–",
-        "quad": " ", "qquad": " ", "enspace": " ", "textasciitilde": "~", "ast": "*"}
+        "quad": " ", "qquad": " ", "enspace": " ", "textasciitilde": "~", "ast": "*", "checkmark": "✓"}
 _BOLD = re.compile(r"\\(textbf|mathbf|boldsymbol|bm)\s*\{|\\(bf|bfseries)(?![a-zA-Z])")
 _UNDER = re.compile(r"\\(underline|uline)\s*\{|\\ul(?![a-zA-Z])")
 _UP = re.compile(r"\\[uU]parrow(?![a-zA-Z])|↑")
@@ -486,8 +562,11 @@ def structure(tab) -> dict:
         for v in carry.values():
             v[1] -= 1
         stop = next((j for j, c in enumerate(cols) if c and c["num"] is not None), ncol)
-        data.append(dict(line=r["line"], cols=cols, texts=texts, block=block,
-                         label=" / ".join(t for t in texts[:stop] if t)))
+        # data.append(dict(line=r["line"], cols=cols, texts=texts, block=block,
+        #                  label=" / ".join(t for t in texts[:stop] if t)))
+        label = " / ".join(t for t in texts[:stop] if t)
+        data.append(dict(line=r["line"], cols=cols, texts=texts, block=block, label=label,
+                         delta=label.startswith("Δ"), ours=any(c and "\\cellcolor" in c["raw"] for c in cols)))
     return dict(head=head, data=data, ncol=ncol, direction=direction, label=label, group=group, heads=heads)
 
 
@@ -533,7 +612,8 @@ def _recompute(st, scope, second):
 
 def audit_marks(st, caption=""):
     """[(severity, message)] for the marks of one tabular: recomputed on the printed values under the scope that
-    explains them best, with the directions read from the header arrows."""
+    explains them best, with the directions read from the header arrows. A Δ row is not a method and is left out."""
+    st = dict(st, data=[r for r in st["data"] if not r.get("delta")])
     data, direction = st["data"], st["direction"]
     cells = [(i, j, c) for i, r in enumerate(data) for j, c in enumerate(r["cols"]) if c is not None]
     marked = [(i, j, c) for i, j, c in cells if c["num"] is not None and _mark_of(c)]
@@ -584,7 +664,54 @@ def audit_marks(st, caption=""):
     return out
 
 
+def audit_delta(st):
+    """[(severity, message)] for a Δ row: each cell recomputed from the printed cells as a tinted row (ours) minus the
+    best untinted row of its column, by the header arrow, at the Δ cell's own precision; a percentage cell as a share
+    of that best row. With two tinted rows, a cell may follow either."""
+    deltas = [r for r in st["data"] if r.get("delta")]
+    if not deltas:
+        return []
+    rows = [r for r in st["data"] if not r.get("delta")]
+    ours, others = [r for r in rows if r["ours"]], [r for r in rows if not r["ours"]]
+    if not ours:
+        return [("WARN", "a Δ row but no tinted row of ours to recompute it from")]
+    out, bad, checked = [], [], 0
+    for d in deltas:
+        for j, cell in enumerate(d["cols"]):
+            if cell is None or cell["num"] is None or not st["direction"][j]:
+                continue
+            base = [r["cols"][j]["num"] for r in others if r["cols"][j] is not None and r["cols"][j]["num"] is not None]
+            if not base:
+                continue
+            best = max(base) if st["direction"][j] == "+" else min(base)
+            q = Decimal(1).scaleb(-cell["dec"])
+            got = []
+            for r in ours:
+                c = r["cols"][j]
+                if c is None or c["num"] is None:
+                    continue
+                v = c["num"] - best
+                if cell["text"].endswith("%"):
+                    v = v / abs(best) * 100 if best else None
+                if v is not None:
+                    got.append(v.quantize(q, rounding=ROUND_HALF_UP))
+            checked += 1
+            if cell["num"] not in got:
+                bad.append(f"{_name(st, j)} prints {cell['text']} where the printed cells give "
+                           f"{' or '.join(_signed(g) for g in got) or 'nothing'} (line {d['line']})")
+    if bad:
+        out.append(("FAIL", f"{len(bad)} of {checked} Δ cells disagree with the printed cells: " + "; ".join(bad[:4])))
+    elif checked:
+        out.append(("PASS", f"Δ row recomputed from the printed cells, {checked} cells"))
+    return out
+
+
+def _signed(d):
+    return f"{d:f}" if d == 0 else ("+" if d > 0 else "") + f"{d:f}"
+
+
 def audit_decimals(st):
+    st = dict(st, data=[r for r in st["data"] if not r.get("delta")])        # a Δ row may carry its own precision
     out, labels = [], _label_columns(st)
     for j in range(st["ncol"]):
         if j in labels:
@@ -711,11 +838,13 @@ def check_names(paths, canon, case=True) -> list[dict]:
 
 
 # ------------------------------------------------------------------------------------------------ verification
-def verify(tex_path, label, columns, rows, value_fn, scope="table", second=True) -> list[dict]:
+def verify(tex_path, label, columns, rows, value_fn, scope="table", second=True, delta=None, delta_ours=None,
+           relative=False) -> list[dict]:
     """Every cell of the table labelled `label` whose number or mark differs from what build() computes from
     value_fn, every spec row missing from the table and every table row missing from the spec, and every header that
     is not the column's name with its arrow: [{"row", "column", "line", "expected", "found"}]. The table is read as
-    build() lays it out: the class column when the rows have a class, the name, then the columns in order."""
+    build() lays it out: the class column when the rows have a class, the name, then the columns in order; with
+    `delta`, the Δ row build() writes is checked against improvement()."""
     found = [t for t in parse_tables(tex_path) if label in t["labels"]]
     if not found or not found[0]["tabulars"]:
         raise ValueError(f"no table labelled {label} with a tabular in {tex_path}")
@@ -748,6 +877,21 @@ def verify(tex_path, label, columns, rows, value_fn, scope="table", second=True)
             if not same or _mark_of(cell) != mark:
                 issues.append(dict(row=r.key, column=c.key, line=d["line"], expected=show(text, mark),
                                    found=show(got, _mark_of(cell))))
+    if delta:
+        want = improvement(columns, rows, value_fn, ours=delta_ours, relative=relative)
+        idx = next((i for i, d in enumerate(st["data"]) if i not in used and d["label"] == plain(delta)), None)
+        if idx is None:
+            issues.append(dict(row="delta", column=None, line=None, expected=f"row {plain(delta)}", found="not in the table"))
+        else:
+            used.add(idx)
+            d = st["data"][idx]
+            for k, c in enumerate(columns):
+                cell = d["cols"][lead + k] if lead + k < len(d["cols"]) else None
+                text = plain(want[c.key] or "")
+                got = "" if cell is None else cell["text"]
+                if got != text:
+                    issues.append(dict(row="delta", column=c.key, line=d["line"], expected=text or "(empty)",
+                                       found=got or "(empty)"))
     for i, d in enumerate(st["data"]):
         if i not in used:
             issues.append(dict(row=None, column=None, line=d["line"], expected="no such row in the spec", found=d["label"]))
@@ -789,6 +933,7 @@ def audit_tex(paths, canon=None) -> tuple[list[dict], list[dict]]:
                 checks += [(sev, "marks" if sev else "", (tag + msg) if sev else msg)
                            for sev, msg in audit_marks(st, t["caption"])]
                 checks += [(sev, "decimals", tag + msg) for sev, msg in audit_decimals(st)]
+                checks += [(sev, "delta", tag + msg) for sev, msg in audit_delta(st)]
             if canon is not None:
                 mine = [h for h in hits if h["path"] == t["path"] and t["line"] <= h["line"] <= t["end"]]
                 inside |= {id(h) for h in mine}

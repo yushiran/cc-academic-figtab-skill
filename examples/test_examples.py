@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from matplotlib.ticker import NullLocator
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -103,6 +104,8 @@ def green_panels():
     for i, ax in enumerate(axes.flat):
         ax.plot([1, 4, 16, 64], [20 + i, 30 + i, 31 + i, 31 + i], "-o", color=C.ACCENT, ms=2.6)
         ax.set_xscale("log")
+        ax.set_xticks([1, 4, 16, 64], ["1", "4", "16", "64"])     # reader ticks, never 10^0 (contract section 5)
+        ax.xaxis.set_minor_locator(NullLocator())
         ax.set_ylim(19 + i, 33 + i)
     mixed_xlabel(axes[1, 0], [("evaluations ", "word"), ("$N$", "math"), (" (log scale)", "word")])
     save(fig, OUT / "panels.pdf")

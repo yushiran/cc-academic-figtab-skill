@@ -87,6 +87,25 @@ MARKER = 3.2                         # every data marker, filled
 MARKER_OPERATING = 5.2               # the one point the tables report, filled, 0.6 pt white edge
 MARKER_EDGE_OPERATING = 0.6
 
+# --- Maps, radar and gaps --------------------------------------------------------------------------
+# Colour maps are terms like hues: one per kind of data. viridis is perceptually uniform and prints in greyscale;
+# RdBu_r is diverging, for a signed quantity centred on zero; grey for an image shown as it is. A map is checked
+# by name, since its colours lie outside the palette by construction. jet, rainbow and hsv are never allowed.
+CMAPS = {"sequential": "viridis", "diverging": "RdBu_r", "image": "gray"}
+CMAPS_ALLOWED = ("viridis", "viridis_r", "RdBu_r", "RdBu", "gray", "gray_r", "Greys", "Greys_r")
+# A radar, only when the author asks for one (references/contract.md section 6): the worst method on an inner ring
+# so no polygon collapses to the centre, a y limit past the outer ring so a polygon on it clears the task labels,
+# the other methods thin and dashed, ours at the accent width with a light fill. SOLO fig11 v1 to v3, 2026-09-23.
+RADAR_FLOOR = 0.15
+RADAR_YLIM = 1.06
+RADAR_LINE_W = 0.7
+RADAR_FILL_ALPHA = 0.12
+GAP_ARROW_MIN = 3.0                  # a dimension arrow shorter than three heads hides under its own markers
+                                     # (an 8 pt arrow for a step of 3 FID on a 90 FID axis, SKILL.md)
+GAP_MUTATION = 5.0                   # the arrowhead of budget()'s dimension line, so every gap has one silhouette
+LEADER_STEPS = (10.0, 14.0, 18.0, 24.0, 30.0)   # DERIVED, not measured: pt from a point to a label that fits nowhere
+                                     # beside it; past the 4-5 pt ring of adjacent spots, and at most an eighth of a column
+
 # --- Result grids (qualitative figures and teasers) ------------------------------------------------
 # Measured 2026-09-23 from the image placements of 87 qualitative figures in 33 papers (44 PDFs read, every figure
 # classified by eye): 54 comparisons, 24 single-method result grids, 9 generation sample grids. The gap lists and the

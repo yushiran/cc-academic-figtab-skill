@@ -106,6 +106,9 @@ def audit(fig, overlap_tol_pt: float = 0.3) -> list[tuple[str, str]]:
     glyphs = _draw_collect_glyphs(fig)
     if glyphs:
         issues.append(("FAIL", "missing glyphs, the page will print boxes: " + " | ".join(glyphs[:3])[:240]))
+    if any(ax.name == "3d" for ax in fig.axes):              # decoration; the checks below assume 2-D axes
+        return issues + [("FAIL", "a 3D axes: depth drawn on a page is decoration that hides the values (SKILL.md, "
+                                  "what reviewers see first); plot the two dimensions that carry the claim")]
     fig.canvas.draw()            # the glyph pass rendered at 100 dpi, and a legend keeps the layout of its last draw;
     renderer = fig.canvas.get_renderer()   # measure everything after one draw at the figure's own dpi (found 2026-09-22)
     px_per_pt = fig.dpi / 72.0
@@ -234,6 +237,8 @@ def audit(fig, overlap_tol_pt: float = 0.3) -> list[tuple[str, str]]:
                 continue
             cands = [art.get_facecolor(), art.get_edgecolor()] if art.get_fill() else [art.get_edgecolor()]
         elif isinstance(art, Collection):
+            if art.get_array() is not None:                  # coloured by a map, which check 6 judges by its name
+                continue
             cands = list(art.get_facecolors()) + list(art.get_edgecolors())
         elif hasattr(art, "get_color"):
             cands = [art.get_color()]
@@ -243,8 +248,200 @@ def audit(fig, overlap_tol_pt: float = 0.3) -> list[tuple[str, str]]:
                 stray.add(h)
     if stray:
         issues.append(("WARN", f"colours outside the palette: {sorted(stray)[:8]}"))
+    issues += _axes_rules(fig, texts, renderer, px_per_pt)
     if getattr(fig, "_af_kind", None) == "grid":
         issues += audit_grid(fig)
+    return issues
+
+
+# --- the axes rules ----------------------------------------------------------------------------------
+_NEG_ZERO = __import__("re").compile(r"(?<![\d.])[-−]0(?:\.0+)?(?![\d.])")
+_MATH_FAMILIES = ("Arimo", "cmr10", "cmmi10", "cmsy10", "cmex10", "DejaVu Sans")
+
+
+def _is_band(c) -> bool:
+    """A fill_between band: an error band unless its caller marked it _af_not_error."""
+    from matplotlib.collections import PolyCollection
+    return (type(c).__name__ == "FillBetweenPolyCollection" or type(c) is PolyCollection) \
+        and not getattr(c, "_af_not_error", False)
+
+
+def _covers_data(ax, bb, renderer) -> bool:
+    """Whether a box (display units) lies on a drawn line, marker, bar or collection of the axes."""
+    import numpy as np
+    for ln in ax.get_lines():
+        if not ln.get_visible():
+            continue
+        xy = ln.get_transform().transform(ln.get_xydata())
+        xy = xy[np.isfinite(xy).all(1)]
+        if ln.get_linestyle() in ("None", "none", "", " "):
+            r = ln.get_markersize() * ax.figure.dpi / 72.0 / 2
+            if any(bb.x0 - r < x < bb.x1 + r and bb.y0 - r < y < bb.y1 + r for x, y in xy):
+                return True
+        elif ln.get_transform().transform_path(ln.get_path()).intersects_bbox(bb, filled=False):
+            return True
+    if any(p.get_visible() and p.get_window_extent(renderer).overlaps(bb) for p in ax.patches):
+        return True
+    for c in ax.collections:
+        if not c.get_visible():
+            continue
+        tr = c.get_transform()
+        if any(tr.transform_path(p).intersects_bbox(bb, filled=True) for p in c.get_paths()[:200]):
+            return True
+        offs = c.get_offset_transform().transform(c.get_offsets()) if len(c.get_offsets()) else []
+        if any(bb.x0 <= x <= bb.x1 and bb.y0 <= y <= bb.y1 for x, y in offs):
+            return True
+    return False
+
+
+def _axes_rules(fig, texts, renderer, px_per_pt) -> list[tuple[str, str]]:
+    """The rules of contract sections 3 and 5 that a figure can break without any text colliding: a title, a second y
+    axis, bars off zero, offset tick text, a log axis that does not say so, a framed legend or one on the data, a
+    printed -0.00, a colour map outside the contract, error bars of no stated kind, a leader line across a label, and
+    a typed gap that disagrees with its data. Polar axes (a radar) take the metric name as their title."""
+    import numpy as np
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.container import BarContainer, ErrorbarContainer
+    from matplotlib.image import AxesImage
+    issues = []
+    axes = [ax for ax in fig.axes if ax.get_visible()]
+    plain_axes = [ax for ax in axes if ax.axison and getattr(ax, "_colorbar", None) is None and ax.name != "polar"]
+
+    titled = [t.get_text()[:24] for ax in plain_axes for t in (ax.title, getattr(ax, "_left_title", None),
+                                                               getattr(ax, "_right_title", None))
+              if t is not None and t.get_visible() and t.get_text().strip()]
+    if titled:
+        issues.append(("WARN", f"a title on the axes {titled[:4]}: the caption is the title (contract section 5)"))
+    twins = {(i, j) for i, a in enumerate(axes) for j, b in enumerate(axes) if i < j and a._twinned_axes.joined(a, b)}
+    if twins:
+        issues.append(("FAIL", f"a second y axis (twinx) on {len(twins)} axes pair(s): never (contract section 5); "
+                               f"two panels sharing x, or the second metric in the caption"))
+    bars = []
+    for i, ax in enumerate(axes):
+        for cont in ax.containers:
+            if not isinstance(cont, BarContainer) or not len(cont):
+                continue
+            horizontal = getattr(cont, "orientation", "vertical") == "horizontal"
+            scale = ax.get_xscale() if horizontal else ax.get_yscale()
+            lo, hi = sorted((ax.xaxis if horizontal else ax.yaxis).get_view_interval())
+            if scale != "linear":
+                bars.append(f"axes {i}: a {scale} value axis")
+            elif lo > 0 or hi < 0:
+                bars.append(f"axes {i}: the value axis runs {lo:g} to {hi:g}")
+    if bars:
+        issues.append(("FAIL", f"bars whose value axis excludes zero or is not linear ({'; '.join(bars[:4])}): a bar's "
+                               f"length is its value, so its axis starts at zero (contract section 5); use points "
+                               f"for values far from zero"))
+    offsets = [t.get_text() for ax in plain_axes for t in (ax.xaxis.get_offset_text(), ax.yaxis.get_offset_text())
+               if t.get_visible() and t.get_text().strip()]
+    if offsets:
+        issues.append(("WARN", f"offset text on the ticks {offsets[:4]}: rescale the data and put the unit in the axis "
+                               f"label, so each tick is a number a reader uses (contract section 5)"))
+    ticks = {t for ax in plain_axes for axis in (ax.xaxis, ax.yaxis) for t in axis.get_ticklabels(which="both")}
+    powers = [t.get_text()[:28] for t in texts if t in ticks and ("10^" in t.get_text() or "times10" in
+                                                                  t.get_text().replace(" ", "").replace("\\", ""))]
+    if powers:
+        issues.append(("WARN", f"log ticks printed as powers of ten {powers[:3]}: ticks at values a reader uses (1, 4, "
+                               f"16, 64, 256), never 10^0 (contract section 5); FixedLocator with FixedFormatter, as "
+                               f"budget(ticks=...) sets them"))
+    unsaid = []
+
+    def said(ax, which):
+        axis = ax.xaxis if which == "x" else ax.yaxis
+        return axis.label.get_text() + " ".join(t.get_text() for t in ax.texts
+                                                if getattr(t, "_af_axis_label", None) == which)
+    sup = {w: getattr(fig, f"_sup{w}label", None) for w in ("x", "y")}
+    shared = {w: any("log" in said(a, w).lower() for a in plain_axes)
+              or (sup[w] is not None and "log" in sup[w].get_text().lower()) for w in ("x", "y")}
+    for ax in plain_axes:
+        for which, scale in (("x", ax.get_xscale()), ("y", ax.get_yscale())):
+            if scale in ("log", "symlog"):
+                label = said(ax, which)
+                if "log" not in label.lower() and (label.strip() or not shared[which]):   # small multiples share
+                    unsaid.append(f"{which}: '{label[:32]}'")                           # one label
+
+    if unsaid:
+        issues.append(("WARN", f"a log axis whose label does not say so ({'; '.join(unsaid[:4])}): end it with "
+                               f"'(log scale)' (contract section 5)"))
+    legends = [(ax.get_legend(), [ax]) for ax in axes if ax.get_legend() is not None] + \
+              [(leg, plain_axes) for leg in fig.legends]
+    framed = [leg for leg, _ in legends if leg.get_frame_on() and leg.get_frame().get_visible()]
+    if framed:
+        issues.append(("WARN", f"{len(framed)} framed legend(s): legends are frameless (contract section 5)"))
+    # the entries' own extent: a frameless legend's border padding is empty paper (figS3 of SOLO, 2026-09-26)
+    inner = lambda leg: getattr(leg, "_legend_box", leg).get_window_extent(renderer)
+    over = [fig.axes.index(ax) for leg, owners in legends for ax in owners
+            if leg.get_visible() and _covers_data(ax, inner(leg), renderer)]
+    if over:
+        issues.append(("WARN", f"a legend over the data (axes {sorted(set(over))}): label the series in place, or move "
+                               f"the legend outside the data or to the emptiest quadrant (contract section 5)"))
+    negzero = [t.get_text()[:20] for t in texts if _NEG_ZERO.search(t.get_text())]
+    if negzero:
+        issues.append(("WARN", f"a value printed as -0.00 {negzero[:4]}: print it through tables.fmt(), which gives "
+                               f"0.00"))
+    maps = set()
+    for art in fig.findobj(lambda a: isinstance(a, ScalarMappable)):
+        arr = art.get_array() if hasattr(art, "get_array") else None
+        if arr is None or not getattr(art, "get_visible", lambda: True)():
+            continue
+        if isinstance(art, AxesImage) and np.ndim(arr) == 3:          # an RGB image carries its own colours
+            continue
+        if art.get_cmap().name not in C.CMAPS_ALLOWED:
+            maps.add(art.get_cmap().name)
+    if maps:
+        issues.append(("WARN", f"colour map {sorted(maps)} outside the contract: viridis for sequential data, RdBu_r "
+                               f"for a signed quantity centred on zero, gray for an image as it is; never jet or a "
+                               f"rainbow (contract section 3)"))
+    kinds = list(dict.fromkeys(getattr(fig, "_af_errors", [])))
+    drawn = any(isinstance(c, ErrorbarContainer) for ax in axes for c in ax.containers) or \
+        any(_is_band(c) for ax in axes for c in ax.collections)
+    if len(kinds) > 1:
+        issues.append(("FAIL", f"two kinds of error bar in one figure {kinds}: a reader compares them as one kind; "
+                               f"one kind per figure, stated in the caption"))
+    elif drawn and not kinds:
+        issues.append(("WARN", "error bars or bands with no stated kind: declare_errors(fig, '95 % paired-bootstrap "
+                               "CI over the 1000 test images'), and the caption says the same (reviewer.md, check 8)"))
+    elif kinds:
+        issues.append(("INFO", f"error bars: {kinds[0]}; the caption must say so"))
+    on_line = []
+    for ax in plain_axes:
+        paths = [ln.get_transform().transform_path(ln.get_path()) for ln in ax.get_lines()
+                 if ln.get_visible() and ln.get_linestyle() not in ("None", "none", "", " ")]
+        own = {*ax.get_xticklabels(), *ax.get_yticklabels(), ax.xaxis.label, ax.yaxis.label, ax.title}
+        if ax.get_legend() is not None:
+            own.update(ax.get_legend().get_texts())
+        for t in texts:
+            if t.axes is ax and t not in own and getattr(t, "_af_axis_label", None) is None and any(
+                    p.intersects_bbox(t.get_window_extent(renderer), filled=False) for p in paths):
+                on_line.append(t.get_text()[:20])
+    if on_line:
+        issues.append(("WARN", f"text over a drawn line: {list(dict.fromkeys(on_line))[:6]}; move the label beside "
+                               f"the line, not across it"))
+    crossed = []
+    for ax in axes:
+        for lead in ax.texts:
+            label = getattr(lead, "_af_leader_of", None)
+            if label is None or lead.arrow_patch is None:
+                continue
+            path = lead.arrow_patch.get_path()                         # display units after the draw
+            for t in texts:
+                if t is not label and path.intersects_bbox(t.get_window_extent(renderer), filled=False):
+                    crossed.append(f"'{label.get_text()[:16]}' across '{t.get_text()[:16]}'")
+    if crossed:
+        issues.append(("WARN", f"a leader line across a label: {crossed[:4]}; move the label or give it a fixed spot"))
+    for g in getattr(fig, "_af_gaps", []):
+        if g["mismatch"]:
+            issues.append(("FAIL", f"a gap labelled '{g['text']}' where its two points give {g['computed']}: the "
+                                   f"label is computed by gap(), not typed"))
+        ann = g["arrow"]
+        if ann.arrow_patch is not None:
+            v = ann.arrow_patch.get_path().vertices
+            length = float(np.hypot(*(v.max(0) - v.min(0)))) / px_per_pt
+            head = 0.4 * C.GAP_MUTATION
+            if length < C.GAP_ARROW_MIN * head:
+                issues.append(("WARN", f"a gap arrow {length:.1f} pt long, under {C.GAP_ARROW_MIN:.0f} head lengths: "
+                                       f"it hides under its markers; zoom the cluster in an inset or give the value in "
+                                       f"the caption"))
     return issues
 
 
@@ -476,6 +673,26 @@ def audit_pdf(pdf: Path, target_pt: float, png: Path | None = None, kind: str = 
             issues.append((sev, f"ink {ink:.1f} % (contract for a {kind}: {lo:.0f} to {hi:.0f} %)"))
         if max(left, right) > C.GUTTER_MAX:
             issues.append(("WARN", f"gutters L {left:.1f} R {right:.1f} pt, over the {C.GUTTER_MAX:.0f} pt maximum"))
+    return issues
+
+
+def audit_svg(svg: Path, page_pt: float) -> list[tuple[str, str]]:
+    """The SVG twin written for composition in Figma: text kept as text in the contract's faces, at the PDF's width."""
+    import re
+    s = Path(svg).read_text(errors="replace")
+    issues = []
+    m = re.search(r"<svg[^>]*\swidth=\"([\d.]+)pt\"", s)
+    if m and abs(float(m.group(1)) - page_pt) > 0.5:
+        issues.append(("WARN", f"SVG twin {float(m.group(1)):.1f} pt wide against the PDF's {page_pt:.1f} pt"))
+    families = sorted({f.strip() for f in re.findall(r"font-family[:=]\s*['\"]?([^;'\"]+)", s)})
+    if "<text" not in s:
+        issues.append(("WARN", "the SVG twin has no live text: its labels are outlines and cannot be edited"))
+    bad = [f for f in families if f not in _MATH_FAMILIES]
+    if bad:
+        issues.append(("FAIL", f"SVG twin text in faces outside the contract: {bad}"))
+    else:
+        issues.append(("INFO", f"SVG twin: live text in {families}; the Computer Modern runs need the cm fonts "
+                               f"installed wherever it is opened (untested in Figma)"))
     return issues
 
 

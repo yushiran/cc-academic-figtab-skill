@@ -1,4 +1,4 @@
-This skill borrows from three other works, each under its own licence.
+This skill borrows from three other works, each under its own licence, and takes ideas from a fourth.
 
 scipilot-figure-skill, https://github.com/Haojae/scipilot-figure-skill
   Copyright (c) 2026 Haojae. MIT License.
@@ -10,6 +10,14 @@ SciencePlots, https://github.com/garrettj403/SciencePlots
   academic_figure/contract.py copies Paul Tol's bright, muted and high-contrast colour cycles in the order
   of its styles/color/*.mplstyle, and follows its practice of pairing each colour with a marker so series
   separate in greyscale.
+
+figures4papers, https://github.com/ChenLiu-1996/figures4papers
+  Copyright (c) Chen Liu. Creative Commons Attribution-NonCommercial 4.0.
+  No code or asset is copied from it. Surveyed on 2026-09-26, it suggested the plot types and checks that 0.5.0
+  reimplements against this skill's own measured contract: the one-setting sweep, the computed gap, the shared
+  legend for small multiples, leader lines for crowded labels, the SVG twin, the radar as a function, the
+  computed improvement row and the component columns of the table tools, and audit checks for features the
+  contract already forbade. Credited as a courtesy.
 
 Arimo, https://github.com/googlefonts/arimo
   Copyright 2020 The Arimo Project Authors. SIL Open Font License, Version 1.1.

@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from academic_figure.tables import (Column, Row, audit_tex, build, caption_report, caption_words,  # noqa: E402
-                                    check_names, fmt, header, load_canon, verify)
+                                    check_names, component_columns, fmt, header, improvement, load_canon, verify)
 
 OUT = ROOT / "examples" / "out" / "tables"
 shutil.rmtree(OUT, ignore_errors=True)
@@ -84,14 +84,26 @@ datasets:
 
 
 def table(label, caption=CAPTION, cols=COLS, rows=ROWS, fn=value, scope="table", spec=None, edit=lambda t: t,
-          second=True):
-    lead = ["Type", "Method"] if scope == "table" else ["Task", "Method"]
-    spec = spec or "@{}ll" + "r" * len(cols) + "@{}"
+          second=True, delta=None, lead=None):
+    # lead = ["Type", "Method"] if scope == "table" else ["Task", "Method"]
+    # spec = spec or "@{}ll" + "r" * len(cols) + "@{}"
+    lead = lead or (["Type", "Method"] if scope == "table" else ["Task", "Method"])
+    spec = spec or "@{}" + "l" * len(lead) + "r" * len(cols) + "@{}"
     tex = "\n".join([r"\begin{table}[t]", r"  \centering", rf"  \caption{{{caption}}}", rf"  \label{{{label}}}",
                      r"  \footnotesize", rf"  \begin{{tabular}}{{{spec}}}", header(cols, lead),
-                     build(cols, rows, fn, scope=scope, second=second), r"    \bottomrule", r"  \end{tabular}",
-                     r"\end{table}", ""])
+                     build(cols, rows, fn, scope=scope, second=second, delta=delta), r"    \bottomrule",
+                     r"  \end{tabular}", r"\end{table}", ""])
     return edit(tex)
+
+
+# a component ablation: three switches, four rows, the full model last
+COMPONENTS = [("gate", "Gate"), ("grid", "Geometric grid"), ("onpol", "On-policy")]
+CODES = {"a100": "100", "a110": "110", "a101": "101", "a111": "111"}
+ABL = {"a100": (31.1212, 0.1123), "a110": (31.4644, 0.1041), "a101": (31.3813, 0.1072), "a111": (31.7109, 0.0993)}
+AROWS = [Row("a100", "Gate only"), Row("a110", "Gate and grid"), Row("a101", "Gate and on-policy"),
+         Row("a111", "Ours", ours=True)]
+ACAPTION = r"Component ablation on CelebA-128, 1000 test images, Gaussian deblurring. Best per column in bold."
+DELTA = r"$\Delta$ over the best baseline"
 
 
 def write(path, *tables, prose=r"Table~\ref{tab:pixel} compares Flower, PnP-Flow and OT-ODE on CelebA-128."):
@@ -130,6 +142,23 @@ def green():
           and all(r["verdict"] == "PASS" for r in reports), (bad, text, [r["checks"] for r in reports]))
     caps = caption_report(path)
     check("GREEN", "caption_report", [c["verdict"] for c in caps] == ["PASS", "PASS"], caps)
+    got = improvement(COLS, ROWS, value)
+    check("GREEN", "improvement() on the printed values: 33.33 - 33.17, 0.927 - 0.928, 0.078 - 0.078",
+          got == {"nfe": None, "psnr": r"$+$0.16", "ssim": r"$-$0.001", "lpips": "0.000"}, got)
+    dpath = write(OUT / "green" / "delta.tex", table("tab:delta", delta=DELTA))
+    issues = verify(dpath, "tab:delta", COLS, ROWS, value, delta=DELTA)
+    reports, _, bad = verdicts(dpath)
+    recomputed = any(c == "delta" and s == "PASS" for r in reports for s, c, _ in r["checks"])
+    check("GREEN", "a Δ row: verified, recomputed by the audit, left out of the marks", not issues and not bad
+          and recomputed, (issues, bad, [r["checks"] for r in reports]))
+    ccols, cvalue = component_columns(COMPONENTS, CODES, values=lambda r, c: ABL[r][0 if c == "psnr" else 1])
+    apath = write(OUT / "green" / "ablation.tex", table("tab:abl", ACAPTION, ccols + TCOLS, AROWS, cvalue,
+                                                        spec="@{}lcccrr@{}", second=False, lead=["Method"]))
+    issues = verify(apath, "tab:abl", ccols + TCOLS, AROWS, cvalue, second=False)
+    _, _, bad = verdicts(apath)
+    ticks = apath.read_text().count(r"\checkmark")
+    check("GREEN", "component columns: one ✓ per switched-on component, unranked, verified", not issues and not bad
+          and ticks == sum(code.count("1") for code in CODES.values()), (issues, bad, ticks))
     run = subprocess.run([sys.executable, str(ROOT / "scripts" / "audit_tables.py"), str(OUT / "green"), "--canon",
                           str(CANON)], capture_output=True, text=True)
     check("GREEN", "CLI exits 0", run.returncode == 0, run.stdout + run.stderr)
@@ -167,6 +196,19 @@ def reds():
     check("RED", "a stale number, seen by verify() and invisible to the audit",
           len(issues) == 1 and issues[0]["row"] == "ours" and issues[0]["column"] == "psnr" and issues[0]["line"]
           and not bad, (issues, bad))
+    dstale = write(OUT / "red" / "delta.tex", table("tab:dstale", delta=DELTA,
+                                                    edit=lambda t: t.replace(r"$+$0.16", r"$+$0.18")))
+    red("a Δ row that disagrees with the printed cells", dstale, "delta")
+    issues = verify(dstale, "tab:dstale", COLS, ROWS, value, delta=DELTA)
+    check("RED", "the same stale Δ, seen by verify()", [(i["row"], i["column"]) for i in issues] == [("delta", "psnr")],
+          issues)
+    for name, codes in (("a code with a bit missing", dict(CODES, a110="11")),
+                        ("two rows with one code", dict(CODES, a101="110"))):
+        try:
+            component_columns(COMPONENTS, codes)
+            check("RED", f"component_columns: {name}", False, "not refused")
+        except ValueError:
+            check("RED", f"component_columns: {name}", True)
     run = subprocess.run([sys.executable, str(ROOT / "scripts" / "audit_tables.py"), str(OUT / "red")],
                          capture_output=True, text=True)
     check("RED", "CLI exits 1", run.returncode == 1, run.stdout[-400:] + run.stderr)

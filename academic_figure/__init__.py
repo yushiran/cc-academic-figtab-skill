@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 
 from . import contract as C
-from .audit import audit, audit_pdf, report
+from .audit import audit, audit_pdf, audit_svg, report
 
 HERE = Path(__file__).resolve().parent
 FONT = HERE / "fonts" / "Arimo-Regular.ttf"
@@ -77,12 +77,13 @@ def _mediabox_width(path: Path) -> float:
 
 
 def save(fig, path, venue: str | None = None, span: str | None = None, reference: str | None = None,
-         allow_fail: bool = False) -> Path:
+         allow_fail: bool = False, svg: bool = False) -> Path:
     """Write the vector PDF at the target width, a PNG twin, and the audit; raise on any FAIL.
 
     The tight bounding box trims margins, so the page lands narrower than the column. save() measures the page it
     wrote, widens the figure by the shortfall and writes again, up to three times, so the printed figure spans the
-    column with no scaling in LaTeX. Include it with \\includegraphics and no width= argument."""
+    column with no scaling in LaTeX. Include it with \\includegraphics and no width= argument. `svg` also writes an
+    SVG twin with live text, for placing the plot inside a composite figure in Figma; the PDF stays the paper file."""
     import matplotlib.pyplot as plt
     path = Path(path)
     assert path.suffix == ".pdf", "paper figures ship as vector PDF; the PNG is the read-back twin"
@@ -110,6 +111,11 @@ def save(fig, path, venue: str | None = None, span: str | None = None, reference
     png = path.with_suffix(".png")
     fig.savefig(png, dpi=300, **whole)
     issues = audit(fig) + audit_pdf(path, target, png, kind=kind)
+    if svg:
+        import matplotlib
+        with matplotlib.rc_context({"svg.fonttype": "none"}):                  # text as text, editable in Figma
+            fig.savefig(path.with_suffix(".svg"), **whole)
+        issues += audit_svg(path.with_suffix(".svg"), _mediabox_width(path))
     verdict = report(issues, path, png, reference)
     plt.close(fig)
     if verdict == "FAIL" and not allow_fail:
@@ -117,6 +123,10 @@ def save(fig, path, venue: str | None = None, span: str | None = None, reference
     return path
 
 
-from .templates import budget, grid, mixed_label, mixed_xlabel, place_labels  # noqa: E402  (templates import the contract, not this module)
+# from .templates import budget, grid, mixed_label, mixed_xlabel, place_labels  # noqa: E402  (templates import the contract, not this module)
+from .templates import (budget, declare_errors, gap, grid, mixed_label, mixed_xlabel, mixed_ylabel,  # noqa: E402
+                        place_labels, radar, shared_legend, sweep)
 
-__all__ = ["C", "use", "figure", "save", "width_in", "audit", "budget", "grid", "mixed_label", "mixed_xlabel", "place_labels"]
+# __all__ = ["C", "use", "figure", "save", "width_in", "audit", "budget", "grid", "mixed_label", "mixed_xlabel", "place_labels"]
+__all__ = ["C", "use", "figure", "save", "width_in", "audit", "budget", "grid", "mixed_label", "mixed_xlabel",
+           "mixed_ylabel", "place_labels", "sweep", "gap", "radar", "shared_legend", "declare_errors"]

@@ -154,6 +154,15 @@ datasets:
    ```
 
    The body goes between `\begin{tabular}{@{}ll rrrrr@{}}` and `\bottomrule`; `second=False` gives bold only.
+
+   A difference the text cites is computed, never typed. `improvement(cols, rows, value)` gives our row minus the
+   best other row per ranked column, from the printed values ($+$0.16, $-$0.001, 0.000; `relative=True` for a
+   percentage), and `build(..., delta=r"$\Delta$ over the best baseline")` prints it as a last row under a
+   `\midrule`, never marked. The label starts with Δ, which is how the audit finds the row: it leaves it out of the
+   marks and the decimals and recomputes every cell from the printed cells (FAIL on a mismatch). A component
+   ablation's ✓ columns come from `component_columns([(key, header)], {row: "101"}, values=value)`: unranked text
+   columns (`c` in the column spec, `amssymb` for `\checkmark`), which refuse a code of the wrong length and two rows
+   with one code, and whose value_fn hands every other column to `values`.
 3. **Verify.** `verify("sec/experiments.tex", "tab:main", cols, rows, value)` lists every cell whose number or mark
    differs from the data, every row missing on either side and every header that is not its column's name and arrow.
    It must return `[]`.

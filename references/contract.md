@@ -49,7 +49,9 @@ A colour is a term: one concept, one hue, across every figure, plot and table of
 | never | a hue outside the palette, a rainbow or jet map, vibrant's orange beside the accent, a saturated fill | |
 
 Heat maps and error maps take `viridis` or, for signed data, `RdBu_r`; an error map on natural images is not a
-flagship convention (only SSDM-MRI in our survey uses one) and needs a reason.
+flagship convention (only SSDM-MRI in our survey uses one) and needs a reason. A colour map is judged by its name,
+since its colours lie outside the palette by construction: the audit allows `C.CMAPS_ALLOWED` (viridis, RdBu_r,
+gray, each also reversed) and warns on any other, jet and the rainbows first.
 
 ## 4. Lines and marks
 
@@ -69,12 +71,16 @@ flagship convention (only SSDM-MRI in our survey uses one) and needs a reason.
 | --- | --- | --- |
 | spines | left and bottom only, 0.5 pt, black | DAPS Fig. 6, every Kaiming plot |
 | ticks | out, major only, 2.5 pt long, 0.5 pt wide, 2 pt pad; no minor ticks at column width | minor ticks are noise at 236 pt |
-| log axis | when the data span more than a decade; say so in the axis label, "(log scale)"; ticks at values a reader uses (1, 4, 16, 64, 256), never `10^0` | DiffPIR, DAPS Fig. 13, DE-CM, Meng |
+| log axis | when the data span more than a decade; say so in the axis label, "(log scale)"; ticks at values a reader uses (1, 4, 16, 64, 256), never `10^0` | DiffPIR, DAPS Fig. 13, DE-CM, Meng; the audit warns on a log axis whose label, or the one label small multiples share, does not say so, and on power-of-ten ticks |
+| offset text | none: rescale the data and put the unit in the label, so each tick is a number a reader uses | audit WARN |
 | grid | none, unless values must be read off; then 0.3 pt `#E6E7E8` under the data | |
-| truncation | a bar axis starts at zero; a line axis may not, and never hides a crossing | |
-| two y axes | never | |
-| title inside the figure | never; the caption is the title | |
-| legend | none when the series can be labelled in place (DAPS labels seven methods, DE-CM six curves); otherwise frameless, outside the data or in the emptiest quadrant | |
+| truncation | a bar axis starts at zero and is linear; a line axis may not start at zero, and never hides a crossing | audit FAIL on bars whose value axis excludes zero or is logarithmic |
+| two y axes | never | audit FAIL |
+| 3D axes | never: depth on a page is decoration that hides the values | audit FAIL |
+| title inside the figure | never; the caption is the title (a radar's metric name is the one exception, §6) | audit WARN, polar axes exempt |
+| legend | none when the series can be labelled in place (DAPS labels seven methods, DE-CM six curves); otherwise frameless, outside the data or in the emptiest quadrant; for small multiples one legend under the panels (`shared_legend()`) | audit WARN on a framed legend and on one whose entries cover data |
+| text on the data | a label sits beside the line it names, never across it | audit WARN on text over a drawn line |
+| a printed value | through `tables.fmt()`: half-up, and never "-0.00" | audit WARN on a printed negative zero |
 
 ## 6. Plot grammar
 
@@ -83,9 +89,11 @@ flagship convention (only SSDM-MRI in our survey uses one) and needs a reason.
 | quality against compute | ours a swept curve; every baseline one point at its own published setting, labelled in place; a dimension line above the data naming the ratio; the operating point enlarged and its value written | DAPS Fig. 6, CLAMP Fig. 3, DE-CM Fig. 2a, AdaGen Fig. 9 |
 | the compute axis | prior evaluations (or NFE), not seconds; seconds are not reproducible across machines and stay in the tables | |
 | where it goes | never Figure 1; flagships place it at Fig. 2 to 9 | 7 of 7 surveyed |
-| an ablation over one setting | one panel per metric sharing x, ours marked at the reported value | |
+| an ablation over one setting | one panel per metric sharing x, ours marked at the reported value; the ticks are the swept values; a setting not run is a gap, never interpolated; retrained variants of ours in their own Tol muted colour, dash and marker, baselines grey; names beside the curves, moved back along a curve when two ends meet, and a frameless legend clear of the data only when no name fits | `sweep()`; DE-CM Fig. 2, DAPS Fig. 13 |
+| a measured difference | a dimension line between two points of the data, labelled with the value computed from them and its sign, the label clear of the lines; one arrowhead silhouette with `budget()`'s | `gap()`; the audit fails a typed label that disagrees and warns on an arrow under three head lengths |
+| error bars and bands | the kind stated once for the figure, in the caption's words: for a paper that uses no training seeds, the paired bootstrap over test images; one kind per figure | `declare_errors()`; audit WARN on bars or bands of no stated kind, FAIL on two kinds; reviewer.md check 8 |
 | bars | only for a count or a single number per condition; show every point when n < 10 | |
-| radar, only when the author asks for one | one radar per metric, never metrics of different units on one chart; axes = the tasks in the table's order, fixed for the paper; each axis min-max over the methods shown, the direction fixed so the outer ring is the best method (LPIPS and FID inverted), the worst on an inner ring at 0.15 rather than the centre, `ylim` 1.06 so a polygon on the ring stays clear of the labels; every method in its own `SERIES_MUTED` colour with its own `SERIES_DASHES` dash at 0.7 pt, ours `ACCENT` at 1.8 pt with a 0.12 fill; the metric name as the axes title; the names in a frameless legend under the panels (in-place labels collide on a 105 pt radar); at column width 2 x 2 radars need `wspace` about 0.4 so the right-hand label of one radar does not meet the left-hand label of the next; the ink audit warns near 35 %, which eight polygons on four radars produce and the caption's normalisation sentence explains | REX Fig. 5 (per-metric axes, min-max ranges stated), PixRestore (one radar per metric, axes = degradations); zero of 33 flagship inverse-problem papers use one, so the default is no radar; SOLO fig11 v1 to v3, 2026-09-23 |
+| radar, only when the author asks for one (`radar()`, `C.RADAR_FLOOR`, `C.RADAR_YLIM`, `C.RADAR_LINE_W`, `C.RADAR_FILL_ALPHA`; it refuses a missing value) | one radar per metric, never metrics of different units on one chart; axes = the tasks in the table's order, fixed for the paper; each axis min-max over the methods shown, the direction fixed so the outer ring is the best method (LPIPS and FID inverted), the worst on an inner ring at 0.15 rather than the centre, `ylim` 1.06 so a polygon on the ring stays clear of the labels; every method in its own `SERIES_MUTED` colour with its own `SERIES_DASHES` dash at 0.7 pt, ours `ACCENT` at 1.8 pt with a 0.12 fill; the metric name as the axes title; the names in a frameless legend under the panels (in-place labels collide on a 105 pt radar); at column width 2 x 2 radars need `wspace` about 0.4 so the right-hand label of one radar does not meet the left-hand label of the next; the ink audit warns near 35 %, which eight polygons on four radars produce and the caption's normalisation sentence explains | REX Fig. 5 (per-metric axes, min-max ranges stated), PixRestore (one radar per metric, axes = degradations); zero of 33 flagship inverse-problem papers use one, so the default is no radar; SOLO fig11 v1 to v3, 2026-09-23 |
 
 ## 7. Result grids (qualitative figures and teasers)
 
@@ -146,8 +154,12 @@ images mostly do not abut.
 `save()` refuses to hand a figure over while any of these holds: two visible texts overlap; a label is anchored
 outside its axes and so never drawn; a text is cut off by its axes; a glyph is missing; a word is in a face other
 than Arimo or under 6 pt; the page is wider than the target; a font other than Arimo or Computer Modern is
-embedded. It warns on text over a data marker, colours outside the palette, a page more than 1.5 pt narrow, ink
-outside its range and gutters over 10 pt.
+embedded; a second y axis, a 3D axes or bars off zero; a gap label that disagrees with its data; two kinds of error
+bar in one figure. It warns on text over a data marker or a drawn line, colours outside the palette, a colour map
+outside the contract, a title, offset tick text, a log axis that does not say so or prints powers of ten, a framed
+legend or one over the data, a printed -0.00, error bars of no stated kind, a leader across a label, a page more
+than 1.5 pt narrow, ink outside its range and gutters over 10 pt. With `svg=True` it also checks the SVG twin's
+width and faces.
 
 Then it prints the path of the PNG twin, and **the figure is not done until that PNG has been read with the Read
 tool and compared side by side with the named reference figure.** Code checks what code can. A person or an agent

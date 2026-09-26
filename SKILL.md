@@ -26,7 +26,8 @@ never types a size, a colour or a width.
 
 ```python
 import sys; sys.path.insert(0, "<this skill's base directory>")
-from academic_figure import figure, save, budget, grid, mixed_label, mixed_xlabel, place_labels, C
+from academic_figure import (figure, save, budget, sweep, gap, grid, radar, shared_legend, mixed_label,
+                             mixed_xlabel, mixed_ylabel, place_labels, declare_errors, C)
 ```
 
 1. **Claim.** One sentence: what the reader must be able to check off this figure.
@@ -37,14 +38,17 @@ from academic_figure import figure, save, budget, grid, mixed_label, mixed_xlabe
    | figure | call | reference to compare against |
    | --- | --- | --- |
    | quality against compute | `budget(ax, ours=[(x, y, N)], baselines=[(name, x, y)], operating=4, compare_to="Flower", reference=("RAM, no prior evaluations", y))` | DAPS Fig. 6 |
+   | one setting swept: an ablation, sensitivity or robustness curve | `sweep(ax, x, [(name, ys, "ours" \| "variant" \| "baseline")], reported=4, reference=(name, y), log=True \| categorical=True)`, one call per metric panel; a `None` is a setting not run and stays a gap; the names sit beside the curves, else in a frameless legend clear of the data | DE-CM Fig. 2, DAPS Fig. 13 |
+   | the measured difference a figure is about | `gap(ax, a, b, unit="dB")` on two points from the data: the value is computed, never typed, and the label keeps clear of the lines | budget()'s ratio line, CLAMP Fig. 3 |
    | qualitative grid, teaser grid, supplementary sample grid | `grid(panels, headers, row_labels=..., blocks=..., numbers=..., zoom={row: box}, zoom_style="inset"\|"row")`; design first with `references/qualitative.md` (claim, content, selection rule, layout, caption) | DAPS Figs. 1 and 8, ReSample Fig. 7, PnP-Flow Fig. 6, JiT Fig. 8 |
-   | results table | `from academic_figure.tables import Column, Row, header, build, verify`; `build()` writes the body with the marks computed from the data, `verify()` must return `[]`, then `scripts/audit_tables.py <paper_dir> --canon names.yaml`; contract and workflow in `references/tables.md` | DAPS Tab. 1, MAE Tab. 1, InverseBench Tab. 1 |
-   | multi-task ability, when the author asks for a radar | one radar per metric on polar axes from `figure(..., subplot_kw=dict(projection="polar"))`, axes = the tasks in the table's order, min-max over the methods shown with the outer ring the best (lower-is-better metrics inverted), every method in its own `C.SERIES_MUTED` colour and `C.SERIES_DASHES` dash, ours `C.ACCENT` with a light fill, names in a frameless legend under the panels; rules in `references/contract.md` §6 | REX Fig. 5 (per-metric axes); the survey in the paper's `docs/RADAR_CHART_SURVEY` |
+   | results table | `from academic_figure.tables import Column, Row, header, build, verify`; `build()` writes the body with the marks computed from the data, `verify()` must return `[]`, then `scripts/audit_tables.py <paper_dir> --canon names.yaml`; a Δ row over the best baseline with `build(..., delta=r"$\Delta$ over the best baseline")`, ✓ columns of a component ablation with `component_columns()`; contract and workflow in `references/tables.md` | DAPS Tab. 1, MAE Tab. 1, InverseBench Tab. 1 |
+   | multi-task ability, when the author asks for a radar | `radar(ax, tasks, methods, values, "+" \| "-", title="PSNR")` per metric on polar axes from `figure(..., subplot_kw=dict(projection="polar"))`, then `shared_legend(fig)` under the panels; it refuses a missing value; rules in `references/contract.md` §6 | REX Fig. 5 (per-metric axes); the survey in the paper's `docs/RADAR_CHART_SURVEY` |
    | anything else | `figure()` plus matplotlib, colours only from `C` | the closest exemplar in `references/exemplars.md` |
 
 4. **Save.** `save(fig, "figs/name.pdf", reference="<path of the reference image>")`. It closes the page to the
    column width by measurement, writes the PNG twin, audits and raises on a FAIL. Fix every FAIL; read every WARN
-   and either fix it or say in one line why it stands.
+   and either fix it or say in one line why it stands. `svg=True` also writes an SVG twin with live text, for a
+   plot placed inside a composite figure in Figma; the PDF stays the paper file.
 5. **Look.** Read the PNG. Is it the figure intended, is every label legible at print size, does anything sit on
    the data, does it read as the same paper as the other figures? Then compare with the reference. Only now report,
    with the audit lines and what you checked by eye.
@@ -60,12 +64,19 @@ Full table with sources in `references/contract.md`. The values that decide most
   labels; claim ink black; more series from Paul Tol's bright, muted or high-contrast, each with its own dash and
   marker. One concept, one hue, across every figure of the paper.
 - **Lines** structure 0.5, hairline 0.3, claim 0.9; data 1.1, ours 1.8; markers 3.2, the operating point 5.2.
-- **Axes** left and bottom spines only; ticks out, major only; no title; no grid; no second y axis; log axes say so.
+- **Axes** left and bottom spines only; ticks out, major only; no title; no grid; no second y axis; log axes say so,
+  with ticks at values a reader uses, never 10^0; bars from zero on a linear axis; no offset text over the ticks.
+  The audit fails a second y axis, a 3D axes and bars off zero, and warns on the rest.
 - **Labels** in place, beside the thing they name, never a legend when they fit (DAPS labels seven methods);
-  `place_labels()` finds the free spot. A label or axis label that mixes a symbol with words is set with
-  `mixed_label()` / `mixed_xlabel()`, so the symbol gets its 8 pt: maths inside a plain label or a legend entry
+  `place_labels()` finds the free spot, `leader=True` leads a label out of a crowded cluster, `avoid_lines=True`
+  keeps it off the curves. A label or axis label that mixes a symbol with words is set with `mixed_label()` /
+  `mixed_xlabel()` / `mixed_ylabel()`, so the symbol gets its 8 pt: maths inside a plain label or a legend entry
   renders at 6.5 pt, where Computer Modern's x-height is a fifth under Arimo's and the symbol reads small. A legend
-  entry cannot be mixed, so word it.
+  entry cannot be mixed, so word it. A legend is frameless and off the data; `shared_legend()` puts one under
+  small multiples.
+- **Error bars and bands** state their kind: `declare_errors(fig, "95 % paired-bootstrap CI over the 1000 test
+  images")`, the same words in the caption; one kind per figure. **Colour maps** viridis for sequential data,
+  RdBu_r for a signed quantity centred on zero, gray for an image; never jet.
 - **Grids** (measured on 87 flagship qualitative figures, `references/qualitative.md`): the claim sentence first, a
   visible failure per row or the row goes to the supplement; methods across the columns, measurement first, ours the
   last method column under a plain "Ours"; 2.5 pt seams both ways (0 pt only for generated samples), 9.3 pt between
@@ -108,21 +119,26 @@ the checks with the evidence behind each.
 | bold and underline typed by hand | 14 marks in two tables that the printed values do not earn, ties broken on unrounded means | `build()` ranks on the printed values; `verify()` |
 | a table caption that carries the argument | 64 to 130 words, taller than the table it captions | 25 to 50 words; the verdict goes in the text |
 | one task named two ways across tables | "Gaussian deblurring" in the main tables, "Blur" in two supplementary ones | a canon file and `check_names()` |
+| a gap typed into its label | "+2.00 dB" beside two points 1.30 dB apart, stale after a rerun | `gap()` computes it; the audit fails a typed one that disagrees |
+| a label placed at a fixed offset beside a curve | the curve runs through "σ = 0.05" | the templates try spots clear of the lines; the audit warns on text over a line |
+| two curve ends at one point | their names print on top of each other | `sweep()` moves a name back along its curve, then to a legend clear of the data |
+| a log axis left at matplotlib's ticks | 10^0, 10^1, 10^2 in a paper that writes 1, 10, 100 | fixed reader ticks; the audit warns |
 | handing over before reading the render | every defect above shipped once | rule 4 |
 
 ## Files
 
 - `academic_figure/contract.py` — every number. `__init__.py` — `use`, `figure`, `save`. `audit.py` — the gate,
-  with the grid checks in `audit_grid()`. `templates.py` — `budget`, `grid`, `mixed_label`, `mixed_xlabel`,
-  `place_labels`. `fonts/` — Arimo, SIL OFL 1.1.
+  with the grid checks in `audit_grid()` and the SVG twin's in `audit_svg()`. `templates.py` — `budget`, `sweep`,
+  `gap`, `grid`, `radar`, `shared_legend`, `mixed_label`, `mixed_xlabel`, `mixed_ylabel`, `place_labels`,
+  `declare_errors`. `fonts/` — Arimo, SIL OFL 1.1.
 - `references/contract.md` — the rules with their sources. `references/qualitative.md` — how to design a
   qualitative figure, with the measured grammar and the common mistakes. `references/exemplars.md` — the flagship
   figures by paper and number, and what to take from each. `references/reviewer.md` — what a reviewer checks.
 - `academic_figure/grids.py`, `scripts/measure_grids.py` — measure the result grids of any PDF (the evidence behind
   §7); `academic_figure/tables_measure.py`, `scripts/measure_tables.py` — the same for tables.
-- `academic_figure/tables.py` — `Column`, `Row`, `header`, `build`, `verify`, `caption_report`, `load_canon`,
-  `check_names`, `audit_tex`; pure Python, no matplotlib. `scripts/audit_tables.py` — audits every table of a paper
+- `academic_figure/tables.py` — `Column`, `Row`, `header`, `build`, `verify`, `improvement`, `component_columns`,
+  `caption_report`, `load_canon`, `check_names`, `audit_tex`; pure Python, no matplotlib. `scripts/audit_tables.py` — audits every table of a paper
   in its LaTeX source with no spec. `references/tables.md` — the table contract with its sources, the workflow and
   the common mistakes.
 - `examples/` — runnable scripts that draw one figure of each type from bundled data, and double as the tests;
-  `examples/test_tables.py` does the same for the table tools.
+  `examples/test_plots.py` covers the templates and checks of 0.5.0, `examples/test_tables.py` the table tools.
